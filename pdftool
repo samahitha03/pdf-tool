@@ -1,0 +1,49 @@
+#!/bin/bash
+# pdftool — launch the local PDF Tool and open it in the browser.
+#   pdftool         start (if needed) and open the UI
+#   pdftool stop    stop the server
+#   pdftool status  check whether the server is running
+
+DIR="$HOME/Documents/pdf-tool"
+URL="http://127.0.0.1:5177"
+
+is_running() {
+  curl -s -o /dev/null -m 1 "$URL/"
+}
+
+case "${1:-open}" in
+  stop)
+    if lsof -ti :5177 | xargs kill 2>/dev/null; then
+      echo "PDF Tool stopped."
+    else
+      echo "PDF Tool is not running."
+    fi
+    ;;
+  status)
+    if is_running; then
+      echo "PDF Tool is running at $URL"
+    else
+      echo "PDF Tool is not running. Start it with: pdftool"
+    fi
+    ;;
+  open|*)
+    if is_running; then
+      echo "Already running — opening $URL"
+      open "$URL"
+    else
+      echo "Starting PDF Tool..."
+      nohup "$DIR/run.sh" > "$DIR/server.log" 2>&1 &
+      # app.py opens the browser itself once the server is up;
+      # wait briefly and confirm it started.
+      for i in {1..10}; do
+        sleep 1
+        if is_running; then
+          echo "Running at $URL (stop with: pdftool stop)"
+          exit 0
+        fi
+      done
+      echo "Failed to start — check $DIR/server.log"
+      exit 1
+    fi
+    ;;
+esac
