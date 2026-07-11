@@ -1,4 +1,4 @@
-"""Local PDF Tool — merge, split, organize PDFs and convert images to PDF.
+"""Local PDF Tool — merge, split, organize, compress PDFs and convert images to PDF.
 
 Runs entirely on your machine. Start with ./run.sh and the UI opens
 in your browser at http://127.0.0.1:5177
@@ -254,6 +254,195 @@ def jpg_to_pdf():
         name += ".pdf"
     return send_file(out, mimetype="application/pdf",
                      as_attachment=True, download_name=name)
+
+
+# ---------- compression ----------
+
+# Preset → JPEG quality + max image dimension (0 = keep original resolution)
+COMPRESS_PRESETS = {
+    "extreme":     {"quality": 30, "max_dim": 1200},  # smallest files
+    "recommended": {"quality": 60, "max_dim": 1800},  # good balance
+    "less":        {"quality": 85, "max_dim": 0},     # best quality
+}
+# Quality/downscale rungs used to hit a target ratio, mildest first.
+# Bisecting this ladder caps PDF rebuilds at 3, so speed stays consistent.
+RATIO_LADDER = [(90, 0), (75, 2200), (60, 1800), (45, 1400),
+                (30, 1100), (15, 850), (8, 650)]
+
+
+def flatten_rgb(img):
+    """RGB copy of an image; transparency is composited over white."""
+    if img.mode in ("RGBA", "LA", "PA") or \
+            (img.mode == "P" and "transparency" in img.info):
+        rgba = img.convert("RGBA")
+        bg = Image.new("RGB", rgba.size, "white")
+        bg.paste(rgba, mask=rgba.split()[-1])
+        return bg
+    return img if img.mode == "RGB" else img.convert("RGB")
+
+
+def downscaled(img, max_dim):
+    if max_dim and max(img.size) > max_dim:
+        img = img.copy()
+        img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+    return img
+
+
+def jpeg_bytes(img, quality):
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+    return buf.getvalue()
+
+
+def best_quality_under(img, target):
+    """Highest-quality JPEG of img that fits in target bytes (None if q=5 doesn't)."""
+    lo, hi, best = 5, 95, None
+    while lo <= hi:  # ≤7 encodes
+        q = (lo + hi) // 2
+        out = jpeg_bytes(img, q)
+        if len(out) <= target:
+            best, lo = out, q + 1
+        else:
+            hi = q - 1
+    return best
+
+
+def compress_image(data, mode, ratio):
+    img = flatten_rgb(Image.open(io.BytesIO(data)))
+    if mode != "ratio":
+        p = COMPRESS_PRESETS[mode]
+        return jpeg_bytes(downscaled(img, p["max_dim"]), p["quality"])
+
+    target = len(data) * (1 - ratio)
+    best = best_quality_under(img, target)
+    if best is not None:
+        return best
+    # Even quality 5 is too big — downscale toward the target and retry once.
+    floor = jpeg_bytes(img, 5)
+    scale = max(0.2, (target / len(floor)) ** 0.5)
+    img = img.resize((max(1, int(img.width * scale)),
+                      max(1, int(img.height * scale))), Image.LANCZOS)
+    return best_quality_under(img, target) or jpeg_bytes(img, 5)
+
+
+def rebuild_pdf(data, quality, max_dim):
+    """Rewrite a PDF with its embedded images re-encoded at the given quality."""
+    reader = PdfReader(io.BytesIO(data))
+    if reader.is_encrypted:
+        try:
+            reader.decrypt("")
+        except Exception:
+            raise PdfToolError("This PDF is password-protected.")
+    writer = PdfWriter(clone_from=reader)
+    for page in writer.pages:
+        for img in page.images:
+            try:
+                pil = img.image
+                if pil is None:
+                    continue
+                img.replace(downscaled(flatten_rgb(pil), max_dim),
+                            quality=quality)
+            except Exception:
+                continue  # leave images pypdf can't rewrite untouched
+        try:
+            page.compress_content_streams(level=9)
+        except Exception:
+            pass
+    try:
+        writer.compress_identical_objects(remove_identicals=True,
+                                          remove_orphans=True)
+    except Exception:
+        pass
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def compress_pdf(data, mode, ratio):
+    if mode != "ratio":
+        p = COMPRESS_PRESETS[mode]
+        return rebuild_pdf(data, p["quality"], p["max_dim"])
+
+    target = len(data) * (1 - ratio)
+    lo, hi, best, best_idx = 0, len(RATIO_LADDER) - 1, None, None
+    while lo <= hi:  # bisect the ladder: ≤3 rebuilds
+        mid = (lo + hi) // 2
+        out = rebuild_pdf(data, *RATIO_LADDER[mid])
+        if len(out) <= target:
+            best, best_idx, hi = out, mid, mid - 1  # target met — try milder
+        else:
+            lo = mid + 1                            # need stronger compression
+    if best is None:
+        # No rung met the target; the loop ends on the strongest one.
+        return out
+    if best_idx > 0:
+        # One refinement between the winning rung and its milder neighbour
+        # keeps quality as high as the target allows (≤4 rebuilds total).
+        q_mild, dim_mild = RATIO_LADDER[best_idx - 1]
+        q_won = RATIO_LADDER[best_idx][0]
+        refined = rebuild_pdf(data, (q_mild + q_won) // 2, dim_mild)
+        if len(refined) <= target:
+            return refined
+    return best
+
+
+@app.post("/api/compress")
+def compress_files():
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify(error="Upload at least one PDF or image."), 400
+
+    mode = request.form.get("mode", "recommended")
+    if mode != "ratio" and mode not in COMPRESS_PRESETS:
+        return jsonify(error="Unknown compression mode."), 400
+    ratio = 0.5
+    if mode == "ratio":
+        try:
+            pct = int(request.form.get("ratio", "50"))
+        except ValueError:
+            return jsonify(error="Reduction must be a number."), 400
+        if not 5 <= pct <= 90:
+            return jsonify(error="Reduction must be between 5% and 90%."), 400
+        ratio = pct / 100
+
+    results = []
+    name = ""
+    try:
+        for f in files:
+            data = f.read()
+            name = os.path.basename(f.filename or "file")
+            stem, ext = os.path.splitext(name)
+            ext = ext.lower()
+            if ext == ".pdf":
+                out, out_ext = compress_pdf(data, mode, ratio), ".pdf"
+            elif ext in (".jpg", ".jpeg", ".png"):
+                out, out_ext = compress_image(data, mode, ratio), ".jpg"
+            else:
+                raise PdfToolError(f"'{name}' is not a PDF, JPG or PNG.")
+            if len(out) >= len(data):
+                out, out_ext = data, ext  # already as small as we can make it
+            results.append((f"{stem}_compressed{out_ext}", out))
+    except PdfToolError as e:
+        return jsonify(error=str(e)), 400
+    except Exception as e:
+        return jsonify(error=f"Could not compress '{name}': {e}"), 400
+
+    if len(results) == 1:
+        rname, rdata = results[0]
+        suffix = os.path.splitext(rname)[1]
+        mime = "application/pdf" if suffix == ".pdf" else f"image/{suffix.lstrip('.').replace('jpg', 'jpeg')}"
+        return send_file(io.BytesIO(rdata), mimetype=mime, as_attachment=True,
+                         download_name=output_name(rname, suffix))
+
+    buf = io.BytesIO()
+    # Store, don't deflate — the contents are already compressed, and stored
+    # entries keep the reported ZIP size honest.
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        for rname, rdata in results:
+            zf.writestr(rname, rdata)
+    buf.seek(0)
+    return send_file(buf, mimetype="application/zip", as_attachment=True,
+                     download_name=output_name("compressed", ".zip"))
 
 
 def open_browser():
