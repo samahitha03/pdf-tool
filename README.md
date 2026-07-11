@@ -1,8 +1,8 @@
 # PDF Tool (local)
 
-A small local web app to merge, split and organize PDFs, and convert
-JPG/PNG images to PDF. Everything runs on your machine — files are
-processed in memory and never leave your computer.
+A small local web app to merge, split, organize and compress PDFs,
+convert JPG/PNG images to PDF, and compress images. Everything runs on
+your machine — files are processed in memory and never leave your computer.
 
 ## Start
 
@@ -27,10 +27,20 @@ Press `Ctrl+C` in the terminal to stop.
 - **Images to PDF** — drop one or more JPG/PNG images (each becomes a
   page), reorder by dragging, pick a page size (fit-to-image, A4, or
   Letter), click Convert.
+- **Compress** — drop one PDF or JPG/PNG image and shrink it.
+  Presets: *Less Compression* (high quality), *Recommended* (good
+  quality and compression, default), *Extreme* (smallest files). Or
+  pick a *Custom target*: reduce by 25%, 50%, 75%, or any ratio via
+  the slider — a bounded quality search hits the target with
+  consistent speed. Images come back as JPG. If a file can't be made
+  smaller, the original is returned unchanged.
+
+After every successful operation the upload area clears automatically,
+ready for the next job.
 
 ## Files
 
-- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`)
+- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
 - `static/index.html` — the UI (single file, no build step)
 - `static/vendor/` — pdf.js, vendored locally so page previews work offline
 - `run.sh` — launcher; creates `.venv` and installs deps on first run
