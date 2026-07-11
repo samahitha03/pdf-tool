@@ -27,14 +27,16 @@ Press `Ctrl+C` in the terminal to stop.
 - **Images to PDF** — drop one or more JPG/PNG images (each becomes a
   page), reorder by dragging, pick a page size (fit-to-image, A4, or
   Letter), click Convert.
-- **Compress** — drop PDFs and/or JPG/PNG images and shrink them.
+- **Compress** — drop one PDF or JPG/PNG image and shrink it.
   Presets: *Less Compression* (high quality), *Recommended* (good
   quality and compression, default), *Extreme* (smallest files). Or
   pick a *Custom target*: reduce by 25%, 50%, 75%, or any ratio via
   the slider — a bounded quality search hits the target with
-  consistent speed. Images come back as JPG; several files download
-  as a ZIP. If a file can't be made smaller, the original is returned
-  unchanged.
+  consistent speed. Images come back as JPG. If a file can't be made
+  smaller, the original is returned unchanged.
+
+After every successful operation the upload area clears automatically,
+ready for the next job.
 
 ## Files
 

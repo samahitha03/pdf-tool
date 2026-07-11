@@ -134,6 +134,7 @@
   }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
   .hidden { display: none !important; }
+  .desc { font-size: .88rem; color: var(--muted); line-height: 1.45; margin: 0 0 16px; }
 
   /* ---------- dropzone ---------- */
   .dropzone {
@@ -378,6 +379,7 @@
 
   <!-- ======== MERGE PANEL ======== -->
   <div class="panel" id="panel-merge">
+    <p class="desc">Combine two or more PDFs into one file — drag the files to set their order.</p>
     <div class="dropzone" id="drop-merge">
       <span class="dz-icon">📑</span>
       Drop PDF files here or <strong>click to browse</strong>
@@ -395,6 +397,7 @@
 
   <!-- ======== SPLIT PANEL ======== -->
   <div class="panel hidden" id="panel-split">
+    <p class="desc">Pull out specific pages, or break one PDF into several smaller ones.</p>
     <div class="dropzone" id="drop-split">
       <span class="dz-icon">✂️</span>
       Drop a PDF here or <strong>click to browse</strong>
@@ -431,6 +434,7 @@
 
   <!-- ======== ORGANIZE PANEL ======== -->
   <div class="panel hidden" id="panel-organize">
+    <p class="desc">Reorder, rotate or remove pages using live thumbnails, then download the rebuilt PDF.</p>
     <div class="dropzone" id="drop-organize">
       <span class="dz-icon">🗂️</span>
       Drop a PDF here or <strong>click to browse</strong>
@@ -458,6 +462,7 @@
 
   <!-- ======== IMAGES PANEL ======== -->
   <div class="panel hidden" id="panel-jpg">
+    <p class="desc">Turn JPG / PNG images into a single PDF — each image becomes one page.</p>
     <div class="dropzone" id="drop-jpg">
       <span class="dz-icon">🖼️</span>
       Drop JPG / PNG images here or <strong>click to browse</strong>
@@ -481,13 +486,14 @@
 
   <!-- ======== COMPRESS PANEL ======== -->
   <div class="panel hidden" id="panel-compress">
+    <p class="desc">Shrink one PDF or JPG / PNG image. Pick a quality preset, or set exactly how much smaller it should get.</p>
     <div class="dropzone" id="drop-compress">
       <span class="dz-icon">🗜️</span>
-      Drop PDFs or JPG / PNG images here or <strong>click to browse</strong>
-      <input type="file" id="input-compress" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple hidden>
+      Drop a PDF or a JPG / PNG image here or <strong>click to browse</strong>
+      <input type="file" id="input-compress" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
     </div>
     <ul class="filelist" id="list-compress"></ul>
-    <p class="hint" id="hint-compress" style="display:none">Each file is compressed on its own — several files download together as a ZIP.</p>
+    <p class="hint" id="hint-compress" style="display:none"></p>
     <div class="modes" id="modes-compress">
       <button class="mode" data-mode="less">
         <b>Less Compression</b><span>High quality, smaller size savings.</span>
@@ -516,7 +522,7 @@
       <label for="name-compress">Output name</label>
       <input type="text" id="name-compress" placeholder="auto">
     </div>
-    <button class="btn" id="btn-compress" disabled>Compress files</button>
+    <button class="btn" id="btn-compress" disabled>Compress file</button>
     <p class="msg" id="msg-compress"></p>
     <p class="hint">Compressed images are saved as JPG — PNG transparency becomes white.</p>
   </div>
@@ -647,7 +653,7 @@ function wireDropzone(drop, input, onFiles) {
 }
 
 // ---------- reusable multi-file uploader with drag-reorder ----------
-function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, doneMsg }) {
+function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, doneMsg, single }) {
   const list = document.getElementById('list-' + kind);
   const hint = document.getElementById('hint-' + kind);
   const btn = document.getElementById('btn-' + kind);
@@ -660,8 +666,14 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, don
   function addFiles(newFiles) {
     const ok = newFiles.filter(f => accept.test(f.name));
     const skipped = newFiles.length - ok.length;
-    files.push(...ok);
-    setMsgEl(msg, skipped ? `${skipped} file(s) skipped (wrong type).` : '', skipped ? 'err' : '');
+    let note = skipped ? `${skipped} file(s) skipped (wrong type).` : '';
+    if (single) {
+      if (ok.length) files = [ok[0]];
+      if (ok.length > 1) note = 'One file at a time — using ' + ok[0].name + '.';
+    } else {
+      files.push(...ok);
+    }
+    setMsgEl(msg, note, note ? 'err' : '');
     render();
   }
 
@@ -710,6 +722,8 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, don
     try {
       const done = await postAndDownload(endpoint, fd, msg, verb);
       if (doneMsg) setMsgEl(msg, doneMsg(done.blob, files, done.fname), 'ok');
+      files = [];   // fresh start for the next job (keeps the done message)
+      render();
     } catch (e) {
       setMsgEl(msg, e.message, 'err');
     } finally {
@@ -761,7 +775,7 @@ const compressCtl = (function () {
 })();
 
 makeUploader('compress', {
-  accept: /\.(pdf|jpe?g|png)$/i, minFiles: 1,
+  accept: /\.(pdf|jpe?g|png)$/i, minFiles: 1, single: true,
   endpoint: '/api/compress', verb: 'Compressing',
   extraFields: compressCtl.fields,
   doneMsg(blob, files, fname) {
@@ -837,10 +851,15 @@ async function loadPdfDoc(file) {
     fd.append('output_name', document.getElementById('name-split').value);
     try {
       await postAndDownload('/api/split', fd, msg, 'Splitting');
+      // fresh start for the next job (keeps the done message)
+      file = null;
+      rangesInput.value = '';
+      chip.classList.add('hidden');
+      drop.classList.remove('hidden');
     } catch (e) {
       setMsgEl(msg, e.message, 'err');
     } finally {
-      btn.disabled = false;
+      btn.disabled = !file;
     }
   });
 })();
@@ -983,6 +1002,7 @@ async function loadPdfDoc(file) {
     fd.append('output_name', document.getElementById('name-organize').value);
     try {
       await postAndDownload('/api/organize', fd, msg, 'Rebuilding PDF');
+      reset(true);  // fresh start for the next job (keeps the done message)
     } catch (e) {
       setMsgEl(msg, e.message, 'err');
     } finally {

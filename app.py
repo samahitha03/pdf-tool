@@ -387,10 +387,12 @@ def compress_pdf(data, mode, ratio):
 
 
 @app.post("/api/compress")
-def compress_files():
+def compress_file():
     files = request.files.getlist("files")
     if not files:
-        return jsonify(error="Upload at least one PDF or image."), 400
+        return jsonify(error="Upload a PDF or image to compress."), 400
+    if len(files) > 1:
+        return jsonify(error="Compress one file at a time."), 400
 
     mode = request.form.get("mode", "recommended")
     if mode != "ratio" and mode not in COMPRESS_PRESETS:
@@ -405,44 +407,30 @@ def compress_files():
             return jsonify(error="Reduction must be between 5% and 90%."), 400
         ratio = pct / 100
 
-    results = []
-    name = ""
+    f = files[0]
+    data = f.read()
+    name = os.path.basename(f.filename or "file")
+    stem, ext = os.path.splitext(name)
+    ext = ext.lower()
     try:
-        for f in files:
-            data = f.read()
-            name = os.path.basename(f.filename or "file")
-            stem, ext = os.path.splitext(name)
-            ext = ext.lower()
-            if ext == ".pdf":
-                out, out_ext = compress_pdf(data, mode, ratio), ".pdf"
-            elif ext in (".jpg", ".jpeg", ".png"):
-                out, out_ext = compress_image(data, mode, ratio), ".jpg"
-            else:
-                raise PdfToolError(f"'{name}' is not a PDF, JPG or PNG.")
-            if len(out) >= len(data):
-                out, out_ext = data, ext  # already as small as we can make it
-            results.append((f"{stem}_compressed{out_ext}", out))
+        if ext == ".pdf":
+            out, out_ext = compress_pdf(data, mode, ratio), ".pdf"
+        elif ext in (".jpg", ".jpeg", ".png"):
+            out, out_ext = compress_image(data, mode, ratio), ".jpg"
+        else:
+            raise PdfToolError(f"'{name}' is not a PDF, JPG or PNG.")
     except PdfToolError as e:
         return jsonify(error=str(e)), 400
     except Exception as e:
         return jsonify(error=f"Could not compress '{name}': {e}"), 400
 
-    if len(results) == 1:
-        rname, rdata = results[0]
-        suffix = os.path.splitext(rname)[1]
-        mime = "application/pdf" if suffix == ".pdf" else f"image/{suffix.lstrip('.').replace('jpg', 'jpeg')}"
-        return send_file(io.BytesIO(rdata), mimetype=mime, as_attachment=True,
-                         download_name=output_name(rname, suffix))
-
-    buf = io.BytesIO()
-    # Store, don't deflate — the contents are already compressed, and stored
-    # entries keep the reported ZIP size honest.
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
-        for rname, rdata in results:
-            zf.writestr(rname, rdata)
-    buf.seek(0)
-    return send_file(buf, mimetype="application/zip", as_attachment=True,
-                     download_name=output_name("compressed", ".zip"))
+    if len(out) >= len(data):
+        out, out_ext = data, ext  # already as small as we can make it
+    mime = ("application/pdf" if out_ext == ".pdf"
+            else f"image/{out_ext.lstrip('.').replace('jpg', 'jpeg')}")
+    return send_file(io.BytesIO(out), mimetype=mime, as_attachment=True,
+                     download_name=output_name(f"{stem}_compressed{out_ext}",
+                                               out_ext))
 
 
 def open_browser():
