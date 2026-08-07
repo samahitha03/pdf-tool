@@ -42,5 +42,19 @@ ready for the next job.
 
 - `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
 - `static/index.html` — the UI (single file, no build step)
-- `static/vendor/` — pdf.js, vendored locally so page previews work offline
+- `static/vendor/` — pdf.js and anime.js, vendored locally so previews and
+  animation work offline
 - `run.sh` — launcher; creates `.venv` and installs deps on first run
+
+## UI
+
+The interface is animated with [anime.js](https://animejs.com/documentation/)
+v4 (MIT, vendored as `static/vendor/anime.umd.min.js`, exposing the global
+`anime`). It drives the intro timeline and logo line-drawing, the springy tab
+indicator and panel cross-fades, staggered file-list and thumbnail entrances,
+FLIP transitions when a page is deleted, the count-up on compression savings,
+and the confetti particles.
+
+Every animation goes through one `fx()` wrapper, so if anime.js fails to load
+or the reader has `prefers-reduced-motion: reduce` set, each animation's end
+state is applied immediately and the app stays fully usable.
