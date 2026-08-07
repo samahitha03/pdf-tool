@@ -4,370 +4,585 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PDF Tool</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='20' y='10' width='60' height='80' fill='none' stroke='%239CB080' stroke-width='6'/></svg>">
 <script src="/static/vendor/pdf.min.js"></script>
 <script src="/static/vendor/anime.umd.min.js"></script>
 <style>
-  /* ----------------------------------------------------------------
-     Palette: #9CB080 sage · #618764 moss · #2B5748 pine · #273338 slate
-     --a1/--a2 are the text accents (readable on --bg); --s1/--s2 are the
-     accent *surfaces* (buttons, pill, badges) and pair with --on-accent.
-     Light and dark use the palette from opposite ends: dark puts the light
-     greens on the surfaces with dark ink, light puts the deep greens on
-     the surfaces with white ink.
-     ---------------------------------------------------------------- */
-  :root {
-    --bg: #eff3ea;
-    --text: #273338; --muted: #5a6b60;
-    --glass: rgba(255, 255, 255, .66);
-    --glass-border: rgba(255, 255, 255, .85);
-    --glass-inner: rgba(255, 255, 255, .55);
-    --field: rgba(255, 255, 255, .72);
-    --field-border: rgba(39, 51, 56, .14);
-    --a1: #2b5748; --a2: #618764;
-    --s1: #2b5748; --s2: #273338;
-    --on-accent: #ffffff;
-    --accent: var(--a1); --danger: #a8412f;
-    --glow: rgba(43, 87, 72, .2);
-    --shadow: 0 8px 32px rgba(39, 51, 56, .13);
-    --blob1: #b9cba2; --blob2: #9cb080; --blob3: #a9c6b6;
-    --blob-opacity: .55;
-    --thumb-shadow: rgba(39, 51, 56, .22);
+  /* ==========================================================
+     Art Deco, rendered in the sage / moss / pine / slate palette.
+     The palette's most luminous tone plays the "gold" ornament role
+     in each register: sage on the dark ground, pine on the light one.
+     ========================================================== */
+
+  @font-face {
+    font-family: 'Marcellus';
+    src: url('/static/vendor/marcellus-latin.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
   }
+  @font-face {
+    font-family: 'Josefin Sans';
+    src: url('/static/vendor/josefin-sans-latin.woff2') format('woff2');
+    font-weight: 300 700; font-style: normal; font-display: swap;
+  }
+
+  :root {
+    --display: 'Marcellus', 'Didot', 'Bodoni MT', Georgia, serif;
+    --body: 'Josefin Sans', 'Futura', 'Century Gothic', system-ui, sans-serif;
+
+    /* --- light register: ink on champagne paper (period poster) --- */
+    --bg: #f2f0e4;
+    --surface: rgba(255, 254, 246, .74);
+    --surface-solid: #f8f7ec;
+    --ink: #273338;
+    --muted: #5a6b60;
+    --accent: #2b5748;          /* the ornament colour: borders, rules, headings */
+    --accent-bright: #3f7a63;   /* hover / metallic highlight */
+    --accent-2: #618764;        /* secondary accent */
+    --on-accent: #f7f6ea;       /* text on a filled accent surface */
+    --rule: rgba(43, 87, 72, .3);
+    --rule-soft: rgba(43, 87, 72, .16);
+    --glow: rgba(43, 87, 72, .18);
+    --glow-strong: rgba(43, 87, 72, .34);
+    --danger: #a8412f;
+    --grain: .13;
+    --page: #ffffff;            /* PDF paper in thumbnails */
+  }
+
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1b2427;
-      --text: #e7eee3; --muted: #9daea2;
-      --glass: rgba(39, 51, 56, .62);
-      --glass-border: rgba(156, 176, 128, .14);
-      --glass-inner: rgba(156, 176, 128, .06);
-      --field: rgba(14, 21, 18, .5);
-      --field-border: rgba(156, 176, 128, .16);
-      --a1: #9cb080; --a2: #618764;
-      --s1: #9cb080; --s2: #618764;
+      /* --- dark register: gilt on obsidian (ballroom / marquee) --- */
+      --bg: #101719;
+      --surface: rgba(26, 36, 39, .72);
+      --surface-solid: #1a2427;
+      --ink: #e8efe2;
+      --muted: #8fa294;
+      --accent: #9cb080;
+      --accent-bright: #c9d8b4;
+      --accent-2: #618764;
       --on-accent: #0e1512;
-      --accent: var(--a1); --danger: #e79683;
-      --glow: rgba(156, 176, 128, .28);
-      --shadow: 0 8px 40px rgba(0, 0, 0, .55);
-      --blob1: #2b5748; --blob2: #618764; --blob3: #273338;
-      --blob-opacity: .5;
-      --thumb-shadow: rgba(0, 0, 0, .6);
+      --rule: rgba(156, 176, 128, .32);
+      --rule-soft: rgba(156, 176, 128, .16);
+      --glow: rgba(156, 176, 128, .2);
+      --glow-strong: rgba(156, 176, 128, .38);
+      --danger: #e79683;
+      --grain: .2;
+      --page: #f4f2e8;
     }
   }
 
   * { box-sizing: border-box; margin: 0; }
   html { scrollbar-gutter: stable; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--bg); color: var(--text);
-    min-height: 100vh; padding: 48px 16px 70px;
+    font-family: var(--body);
+    background: var(--bg); color: var(--ink);
+    min-height: 100vh; padding: 56px 18px 80px;
     overflow-x: hidden;
+    font-size: 16px; line-height: 1.6;
   }
 
-  /* ---------- aurora backdrop (animated by anime.js) ---------- */
-  .blob {
-    position: fixed; border-radius: 50%; filter: blur(90px);
-    z-index: -1; opacity: var(--blob-opacity); pointer-events: none;
-    will-change: transform;
+  /* ---------- backdrop: sunburst + crosshatch + grain ---------- */
+  .deco-sunburst {
+    position: fixed; top: -34vh; left: 50%;
+    width: 150vmax; height: 150vmax; margin-left: -75vmax;
+    background: repeating-conic-gradient(from 0deg at 50% 50%,
+      var(--accent) 0deg .9deg, transparent .9deg 6deg);
+    -webkit-mask-image: radial-gradient(closest-side, #000 8%, transparent 68%);
+    mask-image: radial-gradient(closest-side, #000 8%, transparent 68%);
+    opacity: .07; z-index: -3; pointer-events: none;
   }
-  .b1 { width: 520px; height: 520px; background: var(--blob1); top: -160px; left: -120px; }
-  .b2 { width: 460px; height: 460px; background: var(--blob2); top: 10%; right: -140px; }
-  .b3 { width: 420px; height: 420px; background: var(--blob3); bottom: -180px; left: 30%; }
-
-  .wrap { max-width: 800px; margin: 0 auto; }
-
-  /* ---------- header ---------- */
-  header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
-  .logo {
-    width: 52px; height: 52px; border-radius: 15px; flex: none; position: relative;
-    background: linear-gradient(135deg, var(--s1), var(--s2) 50%, var(--s1) 75%, var(--s2));
-    background-size: 250% 250%;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 6px 24px var(--glow);
+  .deco-grid {
+    position: fixed; inset: 0; z-index: -2; pointer-events: none; opacity: .11;
+    background-image:
+      repeating-linear-gradient(45deg, var(--rule) 0 1px, transparent 1px 15px),
+      repeating-linear-gradient(-45deg, var(--rule) 0 1px, transparent 1px 15px);
   }
-  .logo svg { width: 26px; height: 26px; stroke: var(--on-accent); overflow: visible; }
+  .deco-grain {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    opacity: var(--grain); mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* ---------- masthead ---------- */
+  header { text-align: center; margin-bottom: 44px; }
+
+  .crest {
+    position: relative; width: 64px; height: 64px; margin: 0 auto 26px;
+    transform: rotate(45deg);
+    border: 1px solid var(--accent);
+    background: var(--surface-solid);
+    display: grid; place-items: center;
+  }
+  .crest::after {
+    content: ''; position: absolute; inset: 5px;
+    border: 1px solid var(--rule);
+  }
+  .crest-glow {
+    position: absolute; inset: -14px; z-index: -1;
+    background: radial-gradient(circle, var(--glow-strong), transparent 70%);
+  }
+  .crest-face { transform: rotate(-45deg); display: grid; place-items: center; }
+  .crest-face svg {
+    width: 25px; height: 25px; stroke: var(--accent); fill: none;
+    stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter;
+    overflow: visible;
+  }
+
+  .titlerow { display: flex; align-items: center; justify-content: center; gap: 22px; }
+  /* Resting width lives here, not in the animation: clean() reverts inline styles
+     to the stylesheet value, so CSS must always hold an animation's END state. */
+  .hrule { height: 1px; width: 74px; background: var(--accent); opacity: .55; flex: none; }
+  @media (max-width: 560px) { .hrule { display: none; } }
+
   h1 {
-    font-size: 1.7rem; letter-spacing: -.03em; line-height: 1.1;
-    background: linear-gradient(90deg, var(--a1), var(--a2), var(--a1));
+    font-family: var(--display); font-weight: 400;
+    font-size: clamp(1.9rem, 6.5vw, 3rem);
+    text-transform: uppercase; letter-spacing: .2em; text-indent: .2em;
+    line-height: 1.05; white-space: nowrap;
+    background: linear-gradient(90deg, var(--accent), var(--accent-bright), var(--accent));
     background-size: 200% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .sub { color: var(--muted); font-size: .9rem; margin-top: 3px; }
+  .sub {
+    margin-top: 18px; color: var(--muted);
+    font-size: .74rem; font-weight: 400;
+    text-transform: uppercase; letter-spacing: .3em; text-indent: .3em;
+  }
 
-  /* ---------- glass tabs with sliding indicator ---------- */
+  /* ---------- ornamental divider ---------- */
+  .ornament {
+    display: flex; align-items: center; justify-content: center; gap: 11px;
+    margin: 20px 0 24px;
+  }
+  .ornament span { height: 1px; width: 54px; background: var(--accent); opacity: .4; }
+  .ornament i { width: 7px; height: 7px; background: var(--accent); transform: rotate(45deg); opacity: .7; }
+
+  /* ---------- tab register ---------- */
   .tabs {
     position: relative; display: grid; grid-template-columns: repeat(5, 1fr);
-    gap: 4px; padding: 5px; margin-bottom: 20px;
-    background: var(--glass); border: 1px solid var(--glass-border);
-    border-radius: 18px; backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    box-shadow: var(--shadow);
+    padding: 7px; margin-bottom: 26px;
+    background: var(--surface); border: 1px solid var(--rule);
+    backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+    box-shadow: 0 0 26px var(--glow);
+  }
+  .tabs::after {
+    content: ''; position: absolute; inset: 3px;
+    border: 1px solid var(--rule-soft); pointer-events: none;
   }
   .tab-pill {
-    position: absolute; top: 5px; left: 0; width: 0; height: calc(100% - 10px);
-    border-radius: 13px; z-index: 0;
-    background: linear-gradient(135deg, var(--s1), var(--s2));
-    box-shadow: 0 4px 18px var(--glow);
+    position: absolute; top: 7px; left: 0; width: 0; height: calc(100% - 14px);
+    background: var(--accent); z-index: 0;
+    box-shadow: 0 0 18px var(--glow-strong);
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px),
+                       calc(100% - 9px) 100%, 0 100%, 0 9px);
   }
   .tab {
     position: relative; z-index: 1;
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
-    padding: 12px 8px 10px; border: none; border-radius: 13px;
-    background: none; color: var(--muted); font-size: .84rem; font-weight: 650;
-    font-family: inherit; cursor: pointer; transition: color .25s;
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 15px 6px 13px; border: none; background: none;
+    color: var(--muted); font-family: var(--body);
+    font-size: .7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .17em; text-indent: .17em;
+    cursor: pointer; transition: color .3s ease;
   }
-  .tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none;
-             stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .tab:hover { color: var(--text); }
+  .tab-num {
+    font-family: var(--display); font-size: .64rem;
+    letter-spacing: .12em; line-height: 1; opacity: .5;
+    transition: opacity .3s ease;
+  }
+  .tab svg {
+    width: 19px; height: 19px; stroke: currentColor; fill: none;
+    stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter;
+  }
+  .tab:hover { color: var(--ink); }
   .tab.active { color: var(--on-accent); }
-  @media (max-width: 560px) {
-    .tabs { grid-template-columns: repeat(2, 1fr); }
+  .tab.active .tab-num { opacity: .75; }
+  @media (max-width: 620px) {
+    .tabs { grid-template-columns: repeat(2, 1fr); gap: 2px; }
     .tab-pill { display: none; }
-    .tab.active { background: linear-gradient(135deg, var(--s1), var(--s2)); }
+    .tab.active { background: var(--accent); }
   }
 
-  /* ---------- glass panel ---------- */
+  /* ---------- panels ---------- */
   .panel {
-    background: var(--glass); border: 1px solid var(--glass-border);
-    border-radius: 22px; padding: 26px;
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
-    box-shadow: var(--shadow);
+    position: relative;
+    background: var(--surface); border: 1px solid var(--rule);
+    padding: 34px 32px;
+    backdrop-filter: blur(11px); -webkit-backdrop-filter: blur(11px);
+    box-shadow: 0 0 34px var(--glow);
+  }
+  .panel::before {
+    content: ''; position: absolute; inset: 7px;
+    border: 1px solid var(--rule-soft); pointer-events: none;
   }
   .hidden { display: none !important; }
-  .desc { font-size: .88rem; color: var(--muted); line-height: 1.45; margin: 0 0 16px; }
+
+  .corner { position: absolute; width: 15px; height: 15px; pointer-events: none; opacity: .6; }
+  .corner.tl { top: 13px; left: 13px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+  .corner.tr { top: 13px; right: 13px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+  .corner.bl { bottom: 13px; left: 13px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+  .corner.br { bottom: 13px; right: 13px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+  .desc {
+    font-size: .92rem; color: var(--muted); line-height: 1.65;
+    margin: 0 auto; max-width: 54ch; text-align: center;
+  }
 
   /* ---------- dropzone ---------- */
   .dropzone {
-    position: relative; border: 2px dashed var(--field-border); border-radius: 16px;
-    padding: 42px 16px; text-align: center; color: var(--muted); cursor: pointer;
-    font-size: .95rem; background: var(--glass-inner);
-    transition: border-color .25s, box-shadow .25s, color .25s;
+    position: relative; border: 1px solid var(--rule);
+    padding: 44px 20px 40px; text-align: center; cursor: pointer;
+    color: var(--muted); background: transparent;
+    transition: border-color .35s ease, box-shadow .35s ease, color .35s ease;
   }
-  .dropzone .dz-icon { font-size: 2rem; display: block; margin-bottom: 10px; }
+  .dropzone::before {
+    content: ''; position: absolute; inset: 7px;
+    border: 1px dashed var(--rule-soft); pointer-events: none;
+    transition: border-color .35s ease;
+  }
   .dropzone:hover, .dropzone.dragover {
-    border-color: var(--accent); color: var(--text);
-    box-shadow: 0 0 0 5px var(--glow), inset 0 0 50px var(--glow);
+    border-color: var(--accent); color: var(--ink);
+    box-shadow: inset 0 0 44px var(--glow), 0 0 18px var(--glow);
   }
-  .dropzone strong { color: var(--accent); }
+  .dropzone:hover::before, .dropzone.dragover::before { border-color: var(--rule); }
 
-  /* ---------- file list ---------- */
-  ul.filelist { list-style: none; padding: 0; margin: 16px 0 0; }
-  ul.filelist li {
-    display: flex; align-items: center; gap: 11px;
-    padding: 11px 13px; margin-bottom: 7px;
-    background: var(--glass-inner); border: 1px solid var(--glass-border);
-    border-radius: 12px; cursor: grab; font-size: .9rem;
-    transition: border-color .2s, box-shadow .2s;
+  .dz-mark {
+    position: relative; display: grid; place-items: center;
+    width: 52px; height: 52px; margin: 0 auto 20px;
+    border: 1px solid var(--accent); transform: rotate(45deg);
   }
-  ul.filelist li:hover { border-color: var(--accent); box-shadow: 0 2px 14px var(--glow); }
+  .dz-mark-face { transform: rotate(-45deg); display: grid; place-items: center; }
+  .dz-mark svg {
+    width: 22px; height: 22px; stroke: var(--accent); fill: none;
+    stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter;
+  }
+  .dz-text {
+    font-size: .76rem; text-transform: uppercase;
+    letter-spacing: .2em; text-indent: .2em;
+  }
+  .dropzone strong { color: var(--accent); font-weight: 700; }
+
+  /* ---------- file register ---------- */
+  ul.filelist { list-style: none; padding: 0; margin: 22px 0 0; }
+  ul.filelist li {
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 15px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--rule-soft);
+    cursor: grab; font-size: .92rem;
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+  ul.filelist li:hover { border-color: var(--accent); box-shadow: 0 0 16px var(--glow); }
   ul.filelist li.dragging { opacity: .35; }
-  .handle { color: var(--muted); user-select: none; }
+  .handle { color: var(--muted); user-select: none; letter-spacing: .1em; }
   .num {
-    background: linear-gradient(135deg, var(--s1), var(--s2)); color: var(--on-accent);
-    border-radius: 8px; min-width: 23px; height: 23px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .74rem; font-weight: 700; box-shadow: 0 2px 8px var(--glow);
+    display: grid; place-items: center; flex: none;
+    min-width: 30px; height: 24px; padding: 0 7px;
+    background: var(--accent); color: var(--on-accent);
+    font-family: var(--display); font-size: .74rem; letter-spacing: .08em;
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px),
+                       calc(100% - 5px) 100%, 0 100%, 0 5px);
   }
   .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fsize { color: var(--muted); font-size: .78rem; }
+  .fsize {
+    color: var(--muted); font-size: .68rem;
+    text-transform: uppercase; letter-spacing: .12em; white-space: nowrap;
+  }
   .rm {
     border: none; background: none; color: var(--muted); cursor: pointer;
-    font-size: 1rem; padding: 2px 7px; border-radius: 7px; line-height: 1;
-    transition: color .15s;
+    font-size: .9rem; padding: 4px 8px; line-height: 1;
+    transition: color .25s ease;
   }
   .rm:hover { color: var(--danger); }
 
-  /* ---------- form bits ---------- */
-  .row { display: flex; gap: 12px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
-  label { font-size: .85rem; color: var(--muted); }
+  /* ---------- form ---------- */
+  .row { display: flex; gap: 16px; align-items: center; margin-top: 24px; flex-wrap: wrap; }
+  label {
+    font-size: .66rem; font-weight: 600; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .2em; text-indent: .2em;
+  }
   input[type=text], select {
-    padding: 10px 13px; border: 1px solid var(--field-border); border-radius: 11px;
-    background: var(--field); color: var(--text); font-size: .9rem; font-family: inherit;
-    transition: border-color .2s, box-shadow .2s;
+    flex: 1; min-width: 170px; min-height: 46px;
+    padding: 10px 4px; border: none; border-bottom: 2px solid var(--accent);
+    border-radius: 0; background: transparent; color: var(--ink);
+    font-family: var(--body); font-size: .95rem;
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+  select {
+    appearance: none; -webkit-appearance: none; padding-right: 26px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(-45deg, transparent 50%, currentColor 50%);
+    background-size: 6px 6px, 6px 6px;
+    background-position: right 12px center, right 6px center;
+    background-repeat: no-repeat;
   }
   input[type=text]:focus, select:focus {
-    outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--glow);
+    outline: none; border-bottom-color: var(--accent-bright);
+    box-shadow: 0 4px 12px var(--glow);
   }
-  input[type=text] { flex: 1; min-width: 160px; }
+  input::placeholder { color: var(--muted); opacity: .8; }
 
+  /* ---------- buttons ---------- */
   .btn {
-    position: relative; overflow: hidden;
-    width: 100%; margin-top: 20px; padding: 14px; border: none; border-radius: 13px;
-    background: linear-gradient(135deg, var(--s1), var(--s2) 60%, var(--s1));
-    background-size: 200% 200%;
-    color: var(--on-accent); font-size: 1rem; font-weight: 750; font-family: inherit;
-    letter-spacing: .01em; cursor: pointer;
-    box-shadow: 0 6px 22px var(--glow);
-    transition: box-shadow .2s, background-position .4s, opacity .2s;
+    position: relative; overflow: hidden; display: block;
+    width: 100%; margin-top: 28px; min-height: 52px; padding: 16px 22px;
+    border: none; background: var(--accent); color: var(--on-accent);
+    font-family: var(--body); font-size: .8rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .22em; text-indent: .22em;
+    cursor: pointer; box-shadow: 0 0 18px var(--glow);
+    clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px),
+                       calc(100% - 13px) 100%, 0 100%, 0 13px);
+    transition: background-color .35s ease, box-shadow .35s ease, opacity .3s ease;
   }
   .btn::after {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
-    transform: translateX(-120%); pointer-events: none;
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(115deg, transparent 32%,
+                rgba(255, 255, 255, .3) 50%, transparent 68%);
+    transform: translateX(-120%);
   }
-  .btn:hover:not(:disabled) { background-position: 100% 50%; box-shadow: 0 10px 30px var(--glow); }
+  .btn:hover:not(:disabled) {
+    background: var(--accent-bright); box-shadow: 0 0 30px var(--glow-strong);
+  }
   .btn:hover:not(:disabled)::after { transform: translateX(120%); transition: transform .7s ease; }
-  .btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  .btn:disabled { opacity: .32; cursor: not-allowed; box-shadow: none; }
+  .btn:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px;
+  }
   .btn-prog {
     position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
-    background: currentColor; border-radius: 3px;
-    opacity: 0; pointer-events: none;
+    background: currentColor; opacity: 0; pointer-events: none;
   }
   .btn.secondary {
-    width: auto; margin: 0; padding: 9px 15px; font-size: .84rem; font-weight: 600;
-    background: var(--glass-inner); color: var(--text);
-    border: 1px solid var(--glass-border); box-shadow: none;
+    width: auto; margin: 0; min-height: 40px; padding: 10px 18px;
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--accent); clip-path: none;
+    font-size: .64rem; letter-spacing: .18em; text-indent: .18em;
+    box-shadow: none;
   }
   .btn.secondary::after { display: none; }
-  .btn.secondary:hover:not(:disabled) { border-color: var(--accent); }
+  .btn.secondary:hover:not(:disabled) {
+    background: var(--accent); color: var(--on-accent); box-shadow: 0 0 16px var(--glow);
+  }
 
-  .msg { margin-top: 14px; font-size: .88rem; text-align: center; min-height: 1.2em; }
+  .msg {
+    margin-top: 20px; font-size: .84rem; text-align: center; min-height: 1.3em;
+    letter-spacing: .04em;
+  }
   .msg.err { color: var(--danger); }
   .msg.ok { color: var(--accent); font-weight: 600; }
-  .hint { font-size: .78rem; color: var(--muted); margin-top: 12px; text-align: center; }
+  .hint {
+    font-size: .66rem; color: var(--muted); margin-top: 16px; text-align: center;
+    text-transform: uppercase; letter-spacing: .18em; text-indent: .18em;
+  }
 
   /* ---------- single-file chip ---------- */
   .filechip {
-    display: flex; align-items: center; gap: 11px; margin-top: 14px;
-    padding: 12px 14px; background: var(--glass-inner);
-    border: 1px solid var(--glass-border); border-radius: 12px; font-size: .9rem;
+    display: flex; align-items: center; gap: 14px; margin-top: 20px;
+    padding: 15px 16px; background: var(--surface);
+    border: 1px solid var(--rule); font-size: .92rem;
   }
-  .filechip .pages-badge { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  .filechip .pages-badge {
+    color: var(--muted); font-size: .68rem; white-space: nowrap;
+    text-transform: uppercase; letter-spacing: .12em;
+  }
 
-  /* ---------- split / compress mode cards ---------- */
-  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 18px; }
+  /* ---------- mode cards ---------- */
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
   @media (max-width: 560px) { .modes { grid-template-columns: 1fr; } }
   .mode {
-    padding: 12px 13px; border: 1px solid var(--glass-border); border-radius: 13px;
-    background: var(--glass-inner); cursor: pointer; text-align: left; color: var(--text);
-    font-family: inherit; transition: border-color .2s, box-shadow .2s;
+    position: relative; padding: 18px 16px 16px;
+    border: 1px solid var(--rule-soft); background: var(--surface);
+    cursor: pointer; text-align: left; color: var(--ink); font-family: var(--body);
+    transition: border-color .35s ease, box-shadow .35s ease, transform .35s ease;
   }
-  .mode:hover { box-shadow: 0 4px 16px var(--glow); }
-  .mode.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
-  .mode b { display: block; font-size: .85rem; margin-bottom: 3px; }
+  .mode .corner { width: 10px; height: 10px; opacity: .35; transition: opacity .35s ease; }
+  .mode .corner.tl { top: 5px; left: 5px; }
+  .mode .corner.br { bottom: 5px; right: 5px; }
+  .mode:hover { transform: translateY(-6px); box-shadow: 0 0 22px var(--glow); border-color: var(--rule); }
+  .mode:hover .corner { opacity: .7; }
+  .mode.active { border-color: var(--accent); box-shadow: 0 0 20px var(--glow); }
+  .mode.active .corner { opacity: 1; }
+  .mode b {
+    display: block; font-family: var(--display); font-weight: 400;
+    font-size: .8rem; margin-bottom: 7px; color: var(--ink);
+    text-transform: uppercase; letter-spacing: .15em;
+  }
   .mode.active b { color: var(--accent); }
-  .mode span { font-size: .74rem; color: var(--muted); line-height: 1.35; }
+  .mode span { font-size: .74rem; color: var(--muted); line-height: 1.5; }
   #modes-compress { grid-template-columns: repeat(4, 1fr); }
-  @media (max-width: 680px) { #modes-compress { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px) { #modes-compress { grid-template-columns: repeat(2, 1fr); } }
 
-  /* ---------- compress ratio controls ---------- */
-  .chips { display: flex; gap: 6px; }
+  /* ---------- ratio controls ---------- */
+  .chips { display: flex; gap: 8px; }
   .chip {
-    padding: 8px 13px; border-radius: 10px; border: 1px solid var(--field-border);
-    background: var(--field); color: var(--muted); font-family: inherit;
-    font-size: .84rem; font-weight: 650; cursor: pointer;
-    transition: border-color .2s, color .2s;
+    padding: 9px 14px; border: 1px solid var(--rule);
+    background: transparent; color: var(--muted); font-family: var(--body);
+    font-size: .68rem; font-weight: 600; cursor: pointer;
+    text-transform: uppercase; letter-spacing: .12em;
+    transition: border-color .3s ease, color .3s ease, background-color .3s ease;
   }
-  .chip:hover { border-color: var(--accent); color: var(--text); }
+  .chip:hover { border-color: var(--accent); color: var(--ink); }
   .chip.active {
-    background: linear-gradient(135deg, var(--s1), var(--s2)); color: var(--on-accent);
-    border-color: transparent; box-shadow: 0 2px 10px var(--glow);
+    background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+    box-shadow: 0 0 14px var(--glow);
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px),
+                       calc(100% - 6px) 100%, 0 100%, 0 6px);
   }
-  input[type=range] { flex: 1; min-width: 120px; accent-color: var(--accent); }
+  input[type=range] {
+    flex: 1; min-width: 130px; accent-color: var(--accent); height: 22px;
+  }
   .pct {
-    font-size: .95rem; font-weight: 750; min-width: 44px; text-align: right;
-    color: var(--accent);
+    font-family: var(--display); font-size: 1.05rem; min-width: 62px;
+    text-align: right; color: var(--accent); letter-spacing: .08em;
   }
 
   /* ---------- organize grid ---------- */
-  .toolbar { display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
   .toolbar .spacer { flex: 1; }
-  .toolbar .count { font-size: .82rem; color: var(--muted); }
+  .toolbar .count {
+    font-size: .66rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .16em;
+  }
+  #org-name {
+    font-family: var(--display); font-size: .9rem; letter-spacing: .08em;
+    color: var(--accent); flex: none; max-width: 38%;
+  }
   .pagegrid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 13px; margin-top: 16px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px; margin-top: 22px;
   }
   .pagecard { cursor: grab; }
   .pc-body {
-    border: 1px solid var(--glass-border); border-radius: 14px;
-    background: var(--glass-inner); padding: 9px;
-    transition: border-color .2s, box-shadow .2s, transform .2s;
+    border: 1px solid var(--rule-soft); background: var(--surface); padding: 11px;
+    transition: border-color .35s ease, box-shadow .35s ease, transform .35s ease;
   }
   .pagecard:hover .pc-body {
-    transform: translateY(-4px); border-color: var(--accent);
-    box-shadow: 0 8px 24px var(--glow);
+    transform: translateY(-6px); border-color: var(--accent);
+    box-shadow: 0 0 22px var(--glow);
   }
   .pagecard.dragging { opacity: .35; }
+  /* double frame: outer card, inner mat, then the page itself */
   .thumb {
-    height: 130px; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; border-radius: 8px;
+    height: 136px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--rule-soft); padding: 7px; background: var(--bg);
   }
-  .thumb canvas {
-    max-width: 118px; max-height: 118px;
-    box-shadow: 0 2px 10px var(--thumb-shadow); border-radius: 3px;
-    background: #fff;
-  }
-  .pagefoot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-  .pagefoot .num { min-width: 20px; height: 20px; font-size: .7rem; }
-  .pageacts { display: flex; gap: 2px; }
+  .thumb canvas { max-width: 112px; max-height: 112px; background: var(--page); }
+  .pagefoot { display: flex; align-items: center; justify-content: space-between; margin-top: 11px; }
+  .pagefoot .num { min-width: 26px; height: 21px; font-size: .68rem; }
+  .pageacts { display: flex; gap: 4px; }
   .pageacts button {
     border: none; background: none; color: var(--muted); cursor: pointer;
-    font-size: .95rem; padding: 2px 6px; border-radius: 7px; line-height: 1;
-    transition: color .15s;
+    font-size: .85rem; padding: 3px 6px; line-height: 1;
+    transition: color .25s ease;
   }
   .pageacts button:hover { color: var(--accent); }
   .pageacts button.del:hover { color: var(--danger); }
-  .grid-status { margin-top: 14px; font-size: .84rem; color: var(--muted); text-align: center; }
+  .grid-status {
+    margin-top: 18px; font-size: .68rem; color: var(--muted); text-align: center;
+    text-transform: uppercase; letter-spacing: .16em;
+  }
 
-  /* ---------- confetti ---------- */
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 
-  footer { text-align: center; margin-top: 26px; font-size: .76rem; color: var(--muted); }
+  footer {
+    text-align: center; margin-top: 40px;
+    font-size: .62rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .24em; text-indent: .24em;
+  }
+  .footrule {
+    width: 100%; max-width: 220px; height: 1px; margin: 0 auto 20px;
+    background: var(--accent); opacity: .35;
+  }
 </style>
 </head>
 <body>
-<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<div class="deco-sunburst" id="sunburst" aria-hidden="true"></div>
+<div class="deco-grid" aria-hidden="true"></div>
+<div class="deco-grain" aria-hidden="true"></div>
 <canvas id="confetti"></canvas>
+
+<!-- geometric icon sprite: one definition, used by tabs and dropzones -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-merge" viewBox="0 0 24 24">
+    <path d="M8 7V4h12v12h-3"/><rect x="4" y="8" width="12" height="12"/>
+  </symbol>
+  <symbol id="i-split" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="7.5" height="14"/><rect x="13.5" y="5" width="7.5" height="14"/>
+  </symbol>
+  <symbol id="i-organize" viewBox="0 0 24 24">
+    <rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/>
+    <rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/>
+  </symbol>
+  <symbol id="i-jpg" viewBox="0 0 24 24">
+    <rect x="3" y="4" width="18" height="16"/><path d="M7 15l4-4 4 4 3-3 3 3"/>
+    <path d="M8.4 8.6h.01"/>
+  </symbol>
+  <symbol id="i-compress" viewBox="0 0 24 24">
+    <path d="M12 3v5m0 0L9.5 5.5M12 8l2.5-2.5M12 21v-5m0 0l-2.5 2.5M12 16l2.5 2.5"/>
+    <path d="M4 12h4M16 12h4"/>
+  </symbol>
+</svg>
 
 <div class="wrap">
   <header>
-    <div class="logo" id="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <path d="M14 2v6h6"/>
-      </svg>
+    <div class="crest" id="crest">
+      <span class="crest-glow" id="crest-glow" aria-hidden="true"></span>
+      <span class="crest-face">
+        <svg id="crest-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 2H4v20h16V8z"/><path d="M14 2v6h6"/>
+        </svg>
+      </span>
     </div>
-    <div>
+    <div class="titlerow">
+      <span class="hrule" aria-hidden="true"></span>
       <h1 id="title">PDF Tool</h1>
-      <p class="sub" id="subtitle">Runs locally — your files never leave this machine.</p>
+      <span class="hrule" aria-hidden="true"></span>
     </div>
+    <p class="sub" id="subtitle">Runs locally &middot; your files never leave this machine</p>
   </header>
 
   <div class="tabs" id="tabs">
     <div class="tab-pill" id="tab-pill"></div>
     <button class="tab active" data-tab="merge">
-      <svg viewBox="0 0 24 24"><path d="M8 7V4h12v12h-3"/><rect x="4" y="8" width="12" height="12" rx="1.5"/></svg>
+      <span class="tab-num" aria-hidden="true">I</span>
+      <svg><use href="#i-merge"/></svg>
       Merge
     </button>
     <button class="tab" data-tab="split">
-      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="7.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="7.5" height="14" rx="1.5"/></svg>
+      <span class="tab-num" aria-hidden="true">II</span>
+      <svg><use href="#i-split"/></svg>
       Split
     </button>
     <button class="tab" data-tab="organize">
-      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+      <span class="tab-num" aria-hidden="true">III</span>
+      <svg><use href="#i-organize"/></svg>
       Organize
     </button>
     <button class="tab" data-tab="jpg">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-9 9"/></svg>
+      <span class="tab-num" aria-hidden="true">IV</span>
+      <svg><use href="#i-jpg"/></svg>
       Images
     </button>
     <button class="tab" data-tab="compress">
-      <svg viewBox="0 0 24 24"><path d="M12 3v5m0 0l-2.5-2.5M12 8l2.5-2.5M12 21v-5m0 0l-2.5 2.5M12 16l2.5 2.5"/><path d="M4 12h4M16 12h4"/></svg>
+      <span class="tab-num" aria-hidden="true">V</span>
+      <svg><use href="#i-compress"/></svg>
       Compress
     </button>
   </div>
 
-  <!-- ======== MERGE PANEL ======== -->
+  <!-- ======== MERGE ======== -->
   <div class="panel" id="panel-merge">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Combine two or more PDFs into one file — drag the files to set their order.</p>
+    <div class="ornament" aria-hidden="true"><span></span><i></i><span></span></div>
     <div class="dropzone" id="drop-merge">
-      <span class="dz-icon">📑</span>
-      Drop PDF files here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><span class="dz-mark-face"><svg><use href="#i-merge"/></svg></span></span>
+      <span class="dz-text">Drop PDF files here or <strong>click to browse</strong></span>
       <input type="file" id="input-merge" accept="application/pdf,.pdf" multiple hidden>
     </div>
     <ul class="filelist" id="list-merge"></ul>
-    <p class="hint hidden" id="hint-merge">Drag files to change the merge order.</p>
+    <p class="hint hidden" id="hint-merge">Drag files to change the merge order</p>
     <div class="row">
       <label for="name-merge">Output name</label>
       <input type="text" id="name-merge" placeholder="merged.pdf">
@@ -376,28 +591,34 @@
     <p class="msg" id="msg-merge"></p>
   </div>
 
-  <!-- ======== SPLIT PANEL ======== -->
+  <!-- ======== SPLIT ======== -->
   <div class="panel hidden" id="panel-split">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Pull out specific pages, or break one PDF into several smaller ones.</p>
+    <div class="ornament" aria-hidden="true"><span></span><i></i><span></span></div>
     <div class="dropzone" id="drop-split">
-      <span class="dz-icon">✂️</span>
-      Drop a PDF here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><span class="dz-mark-face"><svg><use href="#i-split"/></svg></span></span>
+      <span class="dz-text">Drop a PDF here or <strong>click to browse</strong></span>
       <input type="file" id="input-split" accept="application/pdf,.pdf" hidden>
     </div>
     <div class="filechip hidden" id="chip-split">
-      <span class="num">1</span>
+      <span class="num">I</span>
       <span class="fname" id="chip-split-name"></span>
       <span class="pages-badge" id="chip-split-pages"></span>
-      <button class="rm" id="chip-split-rm" title="Remove">✕</button>
+      <button class="rm" id="chip-split-rm" title="Remove">&#10005;</button>
     </div>
     <div class="modes" id="modes-split">
       <button class="mode active" data-mode="extract">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Extract pages</b><span>Pull selected pages into one new PDF.</span>
       </button>
       <button class="mode" data-mode="separate">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Split by ranges</b><span>Each range becomes its own PDF, downloaded as a ZIP.</span>
       </button>
       <button class="mode" data-mode="every">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Every page</b><span>One PDF per page, downloaded as a ZIP.</span>
       </button>
     </div>
@@ -413,17 +634,20 @@
     <p class="msg" id="msg-split"></p>
   </div>
 
-  <!-- ======== ORGANIZE PANEL ======== -->
+  <!-- ======== ORGANIZE ======== -->
   <div class="panel hidden" id="panel-organize">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Reorder, rotate or remove pages using live thumbnails, then download the rebuilt PDF.</p>
+    <div class="ornament" aria-hidden="true"><span></span><i></i><span></span></div>
     <div class="dropzone" id="drop-organize">
-      <span class="dz-icon">🗂️</span>
-      Drop a PDF here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><span class="dz-mark-face"><svg><use href="#i-organize"/></svg></span></span>
+      <span class="dz-text">Drop a PDF here or <strong>click to browse</strong></span>
       <input type="file" id="input-organize" accept="application/pdf,.pdf" hidden>
     </div>
     <div id="organize-ui" class="hidden">
       <div class="toolbar">
-        <span class="fname" id="org-name" style="flex:none;max-width:40%"></span>
+        <span class="fname" id="org-name"></span>
         <span class="count" id="org-count"></span>
         <span class="spacer"></span>
         <button class="btn secondary" id="org-reset">Reset</button>
@@ -431,7 +655,7 @@
       </div>
       <div class="pagegrid" id="pagegrid"></div>
       <p class="grid-status" id="grid-status"></p>
-      <p class="hint">Drag pages to reorder · ↻ rotates · ✕ removes the page.</p>
+      <p class="hint">Drag pages to reorder &middot; &#8635; rotates &middot; &#10005; removes</p>
       <div class="row">
         <label for="name-organize">Output name</label>
         <input type="text" id="name-organize" placeholder="auto">
@@ -441,16 +665,19 @@
     <p class="msg" id="msg-organize"></p>
   </div>
 
-  <!-- ======== IMAGES PANEL ======== -->
+  <!-- ======== IMAGES ======== -->
   <div class="panel hidden" id="panel-jpg">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Turn JPG / PNG images into a single PDF — each image becomes one page.</p>
+    <div class="ornament" aria-hidden="true"><span></span><i></i><span></span></div>
     <div class="dropzone" id="drop-jpg">
-      <span class="dz-icon">🖼️</span>
-      Drop JPG / PNG images here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><span class="dz-mark-face"><svg><use href="#i-jpg"/></svg></span></span>
+      <span class="dz-text">Drop JPG / PNG images here or <strong>click to browse</strong></span>
       <input type="file" id="input-jpg" accept=".jpg,.jpeg,.png,image/jpeg,image/png" multiple hidden>
     </div>
     <ul class="filelist" id="list-jpg"></ul>
-    <p class="hint hidden" id="hint-jpg">Drag images to set page order — each image becomes one page.</p>
+    <p class="hint hidden" id="hint-jpg">Drag images to set page order</p>
     <div class="row">
       <label for="size-jpg">Page size</label>
       <select id="size-jpg">
@@ -465,27 +692,34 @@
     <p class="msg" id="msg-jpg"></p>
   </div>
 
-  <!-- ======== COMPRESS PANEL ======== -->
+  <!-- ======== COMPRESS ======== -->
   <div class="panel hidden" id="panel-compress">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Shrink one PDF or JPG / PNG image. Pick a quality preset, or set exactly how much smaller it should get.</p>
+    <div class="ornament" aria-hidden="true"><span></span><i></i><span></span></div>
     <div class="dropzone" id="drop-compress">
-      <span class="dz-icon">🗜️</span>
-      Drop a PDF or a JPG / PNG image here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><span class="dz-mark-face"><svg><use href="#i-compress"/></svg></span></span>
+      <span class="dz-text">Drop a PDF or a JPG / PNG image here or <strong>click to browse</strong></span>
       <input type="file" id="input-compress" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
     </div>
     <ul class="filelist" id="list-compress"></ul>
     <p class="hint hidden" id="hint-compress"></p>
     <div class="modes" id="modes-compress">
       <button class="mode" data-mode="less">
-        <b>Less Compression</b><span>High quality, smaller size savings.</span>
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
+        <b>Less</b><span>High quality, smaller size savings.</span>
       </button>
       <button class="mode active" data-mode="recommended">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Recommended</b><span>Good quality and good compression.</span>
       </button>
       <button class="mode" data-mode="extreme">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Extreme</b><span>High compression, lower quality.</span>
       </button>
       <button class="mode" data-mode="ratio">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Custom target</b><span>Pick exactly how much smaller.</span>
       </button>
     </div>
@@ -505,10 +739,13 @@
     </div>
     <button class="btn" id="btn-compress" disabled><span class="btn-label">Compress file</span><span class="btn-prog"></span></button>
     <p class="msg" id="msg-compress"></p>
-    <p class="hint">Compressed images are saved as JPG — PNG transparency becomes white.</p>
+    <p class="hint">Compressed images are saved as JPG &middot; PNG transparency becomes white</p>
   </div>
 
-  <footer>Merge · Split · Organize · Images · Compress — all in memory, all on your machine.</footer>
+  <footer>
+    <div class="footrule" aria-hidden="true"></div>
+    Merge &middot; Split &middot; Organize &middot; Images &middot; Compress
+  </footer>
 </div>
 
 <script>
@@ -524,12 +761,17 @@ if (window.pdfjsLib) {
    Motion layer — anime.js v4 (vendored UMD build, global `anime`)
    Every animation goes through fx() so the whole UI stays correct
    when anime.js is missing or the user asked for reduced motion.
+
+   Art Deco motion is mechanical, not organic: fixed-duration eases
+   throughout, no springs and nothing that overshoots.
    ============================================================ */
 const A = window.anime || null;
 const MOTION = !!A && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const stagger = MOTION ? A.stagger : () => 0;
-const spring = MOTION ? A.spring : () => 'out(3)';
+
+const EASE = 'out(3)';        // standard entrance
+const EASE_IO = 'inOut(3)';   // mechanical travel, like a lift door
 
 // Stand-in returned when motion is off, so callers can always chain.
 const NO_ANIM = { pause() {}, play() {}, revert() {}, cancel() {} };
@@ -551,35 +793,25 @@ function clean(anim) {
   if (MOTION && anim && anim !== NO_ANIM) A.utils.cleanInlineStyles(anim);
 }
 
-/* ---------- ambient: aurora blobs ---------- */
-function driftBlobs() {
-  if (!MOTION) return;
-  const r = (a, b) => A.utils.random(a, b);
-  document.querySelectorAll('.blob').forEach((el, i) => {
-    fx(el, {
-      x: [{ to: r(-130, 130), duration: 9000 }, { to: r(-130, 130), duration: 11000 },
-          { to: r(-130, 130), duration: 10000 }],
-      y: [{ to: r(-110, 110), duration: 10000 }, { to: r(-110, 110), duration: 9000 },
-          { to: r(-110, 110), duration: 11000 }],
-      scale: [{ to: r(90, 120) / 100, duration: 10000 }, { to: r(90, 120) / 100, duration: 10000 },
-              { to: r(90, 120) / 100, duration: 10000 }],
-      ease: 'inOutSine',
-      loop: true,
-      alternate: true,
-      delay: i * 700,
-    });
+/** I, II, III … — Deco numbering for the file register. */
+const ROMAN = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],
+               [50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+function roman(n) {
+  let out = '';
+  for (const [value, sym] of ROMAN) while (n >= value) { out += sym; n -= value; }
+  return out;
+}
+
+/* ---------- ambient: the sunburst turns, the crest breathes ---------- */
+function ambient() {
+  fx('#sunburst', { rotate: 360, duration: 240000, ease: 'linear', loop: true });
+  fx('#crest-glow', {
+    opacity: [{ to: .75, duration: 2600 }, { to: .3, duration: 2600 }],
+    ease: 'inOutSine', loop: true,
   });
 }
 
-/* ---------- ambient: logo gradient sheen ---------- */
-function sheenLogo() {
-  fx('#logo', {
-    backgroundPosition: ['0% 50%', '100% 50%'],
-    duration: 6000, ease: 'inOutSine', loop: true, alternate: true,
-  });
-}
-
-/* ---------- title: per-character gradient + shimmer ----------
+/* ---------- title: per-character metallic sweep ----------
    Each character carries its own slice of one continuous gradient, so the
    characters stay individually transformable (a single background-clip:text
    on the h1 would break as soon as a child is transformed). */
@@ -590,8 +822,8 @@ function animateTitle() {
   const chars = A.splitText(title, { chars: true, accessible: true }).chars;
   if (!chars.length) return;
 
-  // Symmetric (a1 → a2 → a1) so the repeated tile joins seamlessly as it drifts.
-  const grad = 'linear-gradient(90deg, var(--a1), var(--a2), var(--a1))';
+  // Symmetric (accent → bright → accent) so the repeated tile joins seamlessly.
+  const grad = 'linear-gradient(90deg, var(--accent), var(--accent-bright), var(--accent))';
   let width = 0;
   let offsets = [];
 
@@ -617,11 +849,10 @@ function animateTitle() {
   measure();
   title.style.background = 'none';   // the characters own the gradient now
 
-  // Slow shimmer: one full tile of travel per loop, so it repeats seamlessly.
-  const shimmer = { t: 0 };
-  fx(shimmer, {
-    t: 1, duration: 7000, ease: 'linear', loop: true,
-    onUpdate: () => paint(shimmer.t * width * 2),
+  const sweep = { t: 0 };
+  fx(sweep, {
+    t: 1, duration: 9000, ease: 'linear', loop: true,
+    onUpdate: () => paint(sweep.t * width * 2),
   });
 
   return { chars, remeasure: measure };
@@ -633,53 +864,48 @@ let activeTab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) :
 document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
 TABS.forEach(n => document.getElementById('panel-' + n).classList.toggle('hidden', n !== activeTab));
 
-/* ---------- intro ---------- */
+/* ---------- intro: the curtain goes up ---------- */
 function intro() {
-  const logo = document.getElementById('logo');
+  const crest = document.getElementById('crest');
   const sub = document.getElementById('subtitle');
+  const rules = document.querySelectorAll('.hrule');
   const tabs = document.querySelectorAll('.tab');
   const panel = document.getElementById('panel-' + activeTab);
 
-  driftBlobs();
-  sheenLogo();
+  ambient();
   const title = animateTitle();
 
   if (!MOTION) return;
 
-  const tl = A.createTimeline({ defaults: { ease: 'out(3)', duration: 640 } });
+  const tl = A.createTimeline({ defaults: { ease: EASE, duration: 620 } });
 
-  tl.add(logo, {
-    scale: [0, 1], rotate: [-35, 0], opacity: [0, 1],
-    ease: spring({ stiffness: 130, damping: 12 }),
-    onComplete: clean,
+  // The crest rotates into its 45° resting position rather than bouncing in.
+  tl.add(crest, {
+    scale: [.4, 1], rotate: [0, 45], opacity: [0, 1],
+    duration: 760, ease: EASE_IO, onComplete: clean,
   }, 0);
 
-  // Draw the document outline in the logo.
   if (A.createDrawable) {
-    const strokes = A.createDrawable('#logo path');
-    tl.add(strokes, { draw: ['0 0', '0 1'], duration: 900, ease: 'inOut(3)' }, 150);
+    const strokes = A.createDrawable('#crest-mark path');
+    tl.add(strokes, { draw: ['0 0', '0 1'], duration: 900, ease: EASE_IO }, 220);
   }
 
   if (title) tl.add(title.chars, {
-    opacity: [0, 1], y: [26, 0], rotate: [-12, 0], delay: stagger(38),
-  }, 180);
-  tl.add(sub, { opacity: [0, 1], y: [8, 0], duration: 520, onComplete: clean }, 420);
+    opacity: [0, 1], y: [22, 0], delay: stagger(42), duration: 640,
+  }, 260);
+
+  // Rules draw outward from the title, like a marquee frame.
+  tl.add(rules, { width: [0, 74], duration: 620, ease: EASE_IO, onComplete: clean }, 520);
+  tl.add(sub, { opacity: [0, 1], y: [8, 0], duration: 560, onComplete: clean }, 620);
   tl.add(tabs, {
-    opacity: [0, 1], y: [12, 0], scale: [.94, 1],
-    delay: stagger(55), duration: 620, onComplete: clean,
-  }, 300);
-  tl.add(panel, { opacity: [0, 1], y: [18, 0], duration: 700, onComplete: clean }, 480);
+    opacity: [0, 1], y: [10, 0], delay: stagger(60), duration: 560, onComplete: clean,
+  }, 420);
+  tl.add(panel, { opacity: [0, 1], y: [16, 0], duration: 680, onComplete: clean }, 640);
 
   return title;
 }
 
 const titleCtl = intro();
-
-/* ---------- floating dropzone icons ---------- */
-fx('.dz-icon', {
-  y: -7, duration: 1700, ease: 'inOutSine', loop: true, alternate: true,
-  delay: stagger(180),
-});
 
 /* ============================================================
    Tabs
@@ -696,7 +922,7 @@ function positionPill(instant) {
     pill.style.width = width + 'px';
     return;
   }
-  fx(pill, { left, width, ease: spring({ stiffness: 190, damping: 17 }) });
+  fx(pill, { left, width, duration: 420, ease: EASE_IO });
 }
 
 function selectTab(name) {
@@ -713,12 +939,10 @@ function selectTab(name) {
 
   positionPill();
 
-  // Pop the icon of the tab that just became active.
   const icon = document.querySelector(`.tab[data-tab="${name}"] svg`);
   if (icon) fx(icon, {
-    scale: [{ to: 1.3, duration: 160 }, { to: 1, duration: 340 }],
-    rotate: [{ to: -10, duration: 160 }, { to: 0, duration: 340 }],
-    ease: 'out(3)', onComplete: clean,
+    scale: [{ to: 1.22, duration: 170 }, { to: 1, duration: 330 }],
+    ease: EASE, onComplete: clean,
   });
 
   if (!MOTION) {
@@ -728,16 +952,17 @@ function selectTab(name) {
   }
 
   fx(prev, {
-    opacity: 0, y: -10, scale: .985, duration: 170, ease: 'out(2)',
+    opacity: 0, y: -10, duration: 180, ease: 'out(2)',
     onComplete: a => { prev.classList.add('hidden'); clean(a); },
   });
 
   next.classList.remove('hidden');
-  const kids = next.querySelectorAll(':scope > *');
-  fx(next, { opacity: [0, 1], duration: 240, delay: 120, onComplete: clean });
+  // Corner brackets are fixed ornament — they belong to the frame, not the content.
+  const kids = next.querySelectorAll(':scope > *:not(.corner)');
+  fx(next, { opacity: [0, 1], duration: 260, delay: 130, onComplete: clean });
   fx(kids, {
-    opacity: [0, 1], y: [16, 0], duration: 560, ease: 'out(3)',
-    delay: stagger(45, { start: 140 }), onComplete: clean,
+    opacity: [0, 1], y: [14, 0], duration: 540, ease: EASE,
+    delay: stagger(48, { start: 150 }), onComplete: clean,
   });
 }
 
@@ -777,22 +1002,21 @@ function reveal(el, show) {
     el.style.overflow = 'hidden';
     fx(el, {
       height: [0, height], marginTop: [0, marginTop], opacity: [0, 1],
-      duration: 400, ease: 'out(3)',
-      onComplete: strip,
+      duration: 420, ease: EASE, onComplete: strip,
     });
   } else {
     const marginTop = parseFloat(getComputedStyle(el).marginTop) || 0;
     el.style.overflow = 'hidden';
     fx(el, {
       height: [el.offsetHeight, 0], marginTop: [marginTop, 0], opacity: [1, 0],
-      duration: 280, ease: 'out(3)',
+      duration: 300, ease: EASE,
       onComplete: () => { el.classList.add('hidden'); strip(); },
     });
   }
 }
 
 /* ============================================================
-   Confetti — particles simulated by an anime.js timer
+   Confetti — diamonds, not squares, simulated by an anime.js timer
    ============================================================ */
 function confetti() {
   if (!MOTION) return;
@@ -805,13 +1029,13 @@ function confetti() {
   canvas.style.height = innerHeight + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const colors = ['#9cb080', '#618764', '#2b5748', '#c3d4b0', '#7fa98d', '#e7eee3'];
+  const colors = ['#9cb080', '#618764', '#2b5748', '#c9d8b4', '#e8efe2', '#3f7a63'];
   const parts = Array.from({ length: 140 }, () => ({
     x: innerWidth / 2 + (Math.random() - .5) * 260,
     y: innerHeight * .55,
     vx: (Math.random() - .5) * 13,
     vy: -Math.random() * 14 - 5,
-    s: Math.random() * 7 + 3,
+    s: Math.random() * 8 + 4,
     c: colors[Math.random() * colors.length | 0],
     r: Math.random() * Math.PI,
     vr: (Math.random() - .5) * .3,
@@ -829,7 +1053,11 @@ function confetti() {
         ctx.rotate(p.r);
         ctx.globalAlpha = fade;
         ctx.fillStyle = p.c;
-        ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * .6);
+        ctx.beginPath();
+        ctx.moveTo(0, -p.s / 2); ctx.lineTo(p.s / 2.6, 0);
+        ctx.lineTo(0, p.s / 2); ctx.lineTo(-p.s / 2.6, 0);
+        ctx.closePath();
+        ctx.fill();
         ctx.restore();
       }
     },
@@ -853,10 +1081,10 @@ function setMsgEl(el, text, cls) {
   if (cls === 'err') {
     fx(el, {
       x: [{ to: -7 }, { to: 7 }, { to: -4 }, { to: 4 }, { to: 0 }],
-      duration: 420, ease: 'inOut(2)', onComplete: clean,
+      duration: 420, ease: EASE_IO, onComplete: clean,
     });
   } else {
-    fx(el, { opacity: [0, 1], y: [6, 0], duration: 380, ease: 'out(3)', onComplete: clean });
+    fx(el, { opacity: [0, 1], y: [6, 0], duration: 380, ease: EASE, onComplete: clean });
   }
 }
 
@@ -885,8 +1113,8 @@ function startProgress(btn) {
 
 function pressFx(btn) {
   fx(btn, {
-    scale: [{ to: .975, duration: 110 }, { to: 1, duration: 320 }],
-    ease: 'out(3)', onComplete: clean,
+    scale: [{ to: .985, duration: 120 }, { to: 1, duration: 300 }],
+    ease: EASE, onComplete: clean,
   });
 }
 
@@ -919,19 +1147,12 @@ function wireDropzone(drop, input, onFiles) {
   drop.addEventListener('click', () => input.click());
   drop.addEventListener('dragover', e => {
     e.preventDefault();
-    if (!drop.classList.contains('dragover')) {
-      drop.classList.add('dragover');
-      fx(drop, { scale: 1.012, duration: 260, ease: 'out(3)' });
-    }
+    drop.classList.add('dragover');
   });
-  drop.addEventListener('dragleave', () => {
-    drop.classList.remove('dragover');
-    fx(drop, { scale: 1, duration: 320, ease: 'out(3)', onComplete: clean });
-  });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
   drop.addEventListener('drop', e => {
     e.preventDefault();
     drop.classList.remove('dragover');
-    fx(drop, { scale: 1, duration: 320, ease: 'out(3)', onComplete: clean });
     onFiles([...e.dataTransfer.files]);
   });
   input.addEventListener('change', () => { onFiles([...input.files]); input.value = ''; });
@@ -964,10 +1185,6 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, onD
     }
     setMsgEl(msg, note, note ? 'err' : '');
     render(single ? 0 : before);
-    if (ok.length) fx(drop, {
-      scale: [{ to: 1.015, duration: 130 }, { to: 1, duration: 300 }],
-      ease: 'out(3)', onComplete: clean,
-    });
   }
 
   /** Rebuild the list; rows from `animateFrom` onward fly in. */
@@ -977,30 +1194,24 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, onD
       const li = document.createElement('li');
       li.draggable = true;
       li.dataset.index = i;
-      li.innerHTML = `<span class="handle">⠿</span><span class="num">${i + 1}</span>` +
+      li.innerHTML = `<span class="handle">&#8942;&#8942;</span><span class="num">${roman(i + 1)}</span>` +
         `<span class="fname">${f.name.replace(/</g, '&lt;')}</span>` +
         `<span class="fsize">${fmtSize(f.size)}</span>` +
-        `<button class="rm" title="Remove">✕</button>`;
+        `<button class="rm" title="Remove">&#10005;</button>`;
 
       li.querySelector('.rm').addEventListener('click', e => {
         e.stopPropagation();
         removeAt(+li.dataset.index, li);
       });
 
-      li.addEventListener('dragstart', () => {
-        li.classList.add('dragging');
-      });
+      li.addEventListener('dragstart', () => li.classList.add('dragging'));
       li.addEventListener('dragend', () => {
         li.classList.remove('dragging');
         // Re-read the order from the DOM before renumbering.
         files = [...list.children].map(el => files[+el.dataset.index]);
         [...list.children].forEach((el, idx) => {
           el.dataset.index = idx;
-          el.querySelector('.num').textContent = idx + 1;
-        });
-        fx(list.children, {
-          scale: [{ to: 1.03, duration: 130 }, { to: 1, duration: 260 }],
-          delay: stagger(28), ease: 'out(3)', onComplete: clean,
+          el.querySelector('.num').textContent = roman(idx + 1);
         });
         updateState();
       });
@@ -1012,7 +1223,7 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, onD
     const fresh = [...list.children].slice(from);
     if (fresh.length) {
       fx(fresh, {
-        opacity: [0, 1], y: [12, 0], scale: [.97, 1], duration: 520, ease: 'out(3)',
+        opacity: [0, 1], x: [-14, 0], duration: 480, ease: EASE,
         delay: stagger(60), onComplete: clean,
       });
     }
@@ -1026,7 +1237,7 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, onD
     fx(li, {
       height: [h, 0], opacity: [1, 0], x: [0, 24],
       marginBottom: 0, paddingTop: 0, paddingBottom: 0,
-      duration: 280, ease: 'out(3)',
+      duration: 300, ease: EASE,
       onComplete: () => { files.splice(index, 1); render(); },
     });
   }
@@ -1093,10 +1304,6 @@ const compressCtl = (function () {
     mode = m.dataset.mode;
     document.querySelectorAll('#modes-compress .mode').forEach(x =>
       x.classList.toggle('active', x === m));
-    fx(m, {
-      scale: [{ to: 1.035, duration: 140 }, { to: 1, duration: 300 }],
-      ease: 'out(3)', onComplete: clean,
-    });
     reveal(rowRatio, mode === 'ratio');
   }));
 
@@ -1106,8 +1313,8 @@ const compressCtl = (function () {
     label.textContent = v + '%';
     chips.forEach(c => c.classList.toggle('active', +c.dataset.pct === v));
     if (pop) fx(label, {
-      scale: [{ to: 1.25, duration: 130 }, { to: 1, duration: 280 }],
-      ease: 'out(3)', onComplete: clean,
+      opacity: [{ to: .4, duration: 100 }, { to: 1, duration: 260 }],
+      ease: EASE, onComplete: clean,
     });
   }
   chips.forEach(c => c.addEventListener('click', () => setPct(+c.dataset.pct, true)));
@@ -1177,21 +1384,18 @@ async function loadPdfDoc(file) {
   function showChip() {
     drop.classList.add('hidden');
     chip.classList.remove('hidden');
-    fx(chip, {
-      opacity: [0, 1], y: [10, 0], scale: [.97, 1],
-      duration: 460, ease: 'out(3)', onComplete: clean,
-    });
+    fx(chip, { opacity: [0, 1], y: [10, 0], duration: 440, ease: EASE, onComplete: clean });
   }
 
   function hideChip() {
     if (!MOTION) { chip.classList.add('hidden'); drop.classList.remove('hidden'); return; }
     fx(chip, {
-      opacity: 0, y: -8, scale: .97, duration: 220, ease: 'out(2)',
+      opacity: 0, y: -8, duration: 220, ease: 'out(2)',
       onComplete: a => {
         chip.classList.add('hidden');
         clean(a);
         drop.classList.remove('hidden');
-        fx(drop, { opacity: [0, 1], y: [8, 0], duration: 380, ease: 'out(3)', onComplete: clean });
+        fx(drop, { opacity: [0, 1], y: [8, 0], duration: 380, ease: EASE, onComplete: clean });
       },
     });
   }
@@ -1222,10 +1426,6 @@ async function loadPdfDoc(file) {
     mode = m.dataset.mode;
     document.querySelectorAll('#modes-split .mode').forEach(x =>
       x.classList.toggle('active', x === m));
-    fx(m, {
-      scale: [{ to: 1.035, duration: 140 }, { to: 1, duration: 300 }],
-      ease: 'out(3)', onComplete: clean,
-    });
     reveal(rowRanges, mode !== 'every');
     setBtnLabel(btn, mode === 'extract' ? 'Extract pages' : 'Split PDF');
   }));
@@ -1284,7 +1484,7 @@ async function loadPdfDoc(file) {
     nameEl.textContent = pdf.name;
     drop.classList.add('hidden');
     ui.classList.remove('hidden');
-    fx(ui, { opacity: [0, 1], y: [12, 0], duration: 420, ease: 'out(3)', onComplete: clean });
+    fx(ui, { opacity: [0, 1], y: [12, 0], duration: 420, ease: EASE, onComplete: clean });
     grid.innerHTML = '';
     status.textContent = 'Loading pages…';
     try {
@@ -1302,7 +1502,7 @@ async function loadPdfDoc(file) {
       status.textContent = `Rendering page ${p} of ${doc.numPages}…`;
       const page = await doc.getPage(p);
       const vp0 = page.getViewport({ scale: 1 });
-      const scale = 118 / Math.max(vp0.width, vp0.height);
+      const scale = 112 / Math.max(vp0.width, vp0.height);
       const vp = page.getViewport({ scale: scale * (window.devicePixelRatio || 1) });
       const canvas = document.createElement('canvas');
       canvas.width = vp.width; canvas.height = vp.height;
@@ -1311,11 +1511,8 @@ async function loadPdfDoc(file) {
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
       const card = makeCard(p - 1, canvas);
       grid.appendChild(card);
-      // Each thumbnail flies in as it finishes rendering — a natural stagger.
-      fx(card, {
-        opacity: [0, 1], scale: [.82, 1], y: [14, 0],
-        duration: 520, ease: 'out(3)', onComplete: clean,
-      });
+      // Each thumbnail is unveiled as it finishes rendering — a natural stagger.
+      fx(card, { opacity: [0, 1], scale: [.86, 1], duration: 480, ease: EASE, onComplete: clean });
     }
     status.textContent = '';
     updateCount();
@@ -1337,15 +1534,17 @@ async function loadPdfDoc(file) {
 
     const foot = document.createElement('div');
     foot.className = 'pagefoot';
+    // Page numbers stay Arabic: they reference real pages in the user's document,
+    // and a reader hunting for page 34 wants "34", not "XXXIV".
     foot.innerHTML = `<span class="num">${index + 1}</span>` +
       `<span class="pageacts">` +
-      `<button class="rot" title="Rotate 90°">↻</button>` +
-      `<button class="del" title="Remove page">✕</button></span>`;
+      `<button class="rot" title="Rotate 90°">&#8635;</button>` +
+      `<button class="del" title="Remove page">&#10005;</button></span>`;
 
     foot.querySelector('.rot').addEventListener('click', () => {
       const r = (+card.dataset.rotate + 90) % 360;
       card.dataset.rotate = r;
-      if (MOTION) fx(canvas, { rotate: r, ease: spring({ stiffness: 110, damping: 13 }) });
+      if (MOTION) fx(canvas, { rotate: r, duration: 420, ease: EASE_IO });
       else canvas.style.transform = `rotate(${r}deg)`;
     });
     foot.querySelector('.del').addEventListener('click', () => removeCard(card));
@@ -1354,10 +1553,6 @@ async function loadPdfDoc(file) {
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging');
       renumber();
-      fx(grid.children, {
-        scale: [{ to: 1.03, duration: 130 }, { to: 1, duration: 260 }],
-        delay: stagger(20), ease: 'out(3)', onComplete: clean,
-      });
     });
 
     body.appendChild(thumb);
@@ -1372,7 +1567,7 @@ async function loadPdfDoc(file) {
     const others = [...grid.children].filter(c => c !== card);
     const before = others.map(c => c.getBoundingClientRect());
     fx(card, {
-      scale: .6, opacity: 0, duration: 240, ease: 'in(2)',
+      scale: .7, opacity: 0, duration: 240, ease: 'in(2)',
       onComplete: () => {
         card.remove();
         others.forEach((c, i) => {
@@ -1380,7 +1575,7 @@ async function loadPdfDoc(file) {
           const dx = before[i].left - now.left;
           const dy = before[i].top - now.top;
           if (!dx && !dy) return;
-          fx(c, { x: [dx, 0], y: [dy, 0], duration: 440, ease: 'out(3)', onComplete: clean });
+          fx(c, { x: [dx, 0], y: [dy, 0], duration: 440, ease: EASE, onComplete: clean });
         });
         renumber();
         updateCount();
@@ -1414,7 +1609,7 @@ async function loadPdfDoc(file) {
       grid.innerHTML = '';
       ui.classList.add('hidden');
       drop.classList.remove('hidden');
-      fx(drop, { opacity: [0, 1], y: [8, 0], duration: 400, ease: 'out(3)', onComplete: clean });
+      fx(drop, { opacity: [0, 1], y: [8, 0], duration: 400, ease: EASE, onComplete: clean });
     }
   }
 
