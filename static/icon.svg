@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="PDF Tool">
+  <defs>
+    <clipPath id="squircle">
+      <rect width="512" height="512" rx="106"/>
+    </clipPath>
+
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c1522"/>
+      <stop offset="1" stop-color="#0c0910"/>
+    </linearGradient>
+    <radialGradient id="hazeViolet" cx=".32" cy=".68" r=".62">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="hazeEmber" cx=".72" cy=".26" r=".5">
+      <stop offset="0" stop-color="#f2622a" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#f2622a" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="ember" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fb7a33"/>
+      <stop offset="1" stop-color="#d93d1a"/>
+    </linearGradient>
+    <linearGradient id="paper" x1=".1" y1="0" x2=".7" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ddd8ef"/>
+    </linearGradient>
+    <linearGradient id="folderBack" x1="0" y1="0" x2="1" y2=".3">
+      <stop offset="0" stop-color="#7539dd"/>
+      <stop offset="1" stop-color="#9b4ae0"/>
+    </linearGradient>
+    <linearGradient id="folderFront" x1="0" y1=".1" x2="1" y2=".9">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset=".5" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#b74fe8"/>
+    </linearGradient>
+    <linearGradient id="facet" x1="0" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#e0489f"/>
+      <stop offset="1" stop-color="#f05fae"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- the folder's front face, reused to clip the magenta facet -->
+    <clipPath id="frontFace">
+      <path d="M72 244 Q56 244 56 260 L56 374 Q56 390 72 390 L328 390
+               Q344 390 344 374 L344 260 Q344 244 328 244 Z"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <rect width="512" height="512" fill="url(#ground)"/>
+    <rect width="512" height="512" fill="url(#hazeViolet)"/>
+    <rect width="512" height="512" fill="url(#hazeEmber)"/>
+
+    <!-- ember card, furthest back -->
+    <g transform="rotate(7 316 160)">
+      <rect x="250" y="84" width="132" height="152" rx="14" fill="url(#ember)"/>
+      <rect x="250" y="84" width="132" height="60" rx="14" fill="url(#sheen)"/>
+    </g>
+
+    <!-- document sheet -->
+    <g transform="rotate(-4 196 156)">
+      <rect x="120" y="52" width="152" height="206" rx="18" fill="url(#paper)"/>
+      <rect x="150" y="100" width="66" height="14" rx="7" fill="#8b93bc"/>
+      <rect x="150" y="132" width="94" height="14" rx="7" fill="#8b93bc"/>
+      <rect x="150" y="164" width="52" height="14" rx="7" fill="#a9aecd"/>
+    </g>
+
+    <!-- folder: back panel with tab, then front face -->
+    <path d="M80 174 Q64 174 64 190 L64 350 Q64 366 80 366 L318 366
+             Q334 366 334 350 L334 228 Q334 212 318 212 L200 212
+             Q190 212 184 204 L166 182 Q160 174 150 174 Z"
+          fill="url(#folderBack)"/>
+
+    <path d="M72 244 Q56 244 56 260 L56 374 Q56 390 72 390 L328 390
+             Q344 390 344 374 L344 260 Q344 244 328 244 Z"
+          fill="url(#folderFront)"/>
+    <g clip-path="url(#frontFace)">
+      <path d="M238 230 L362 230 L362 402 L186 402 Z" fill="url(#facet)"/>
+      <rect x="56" y="244" width="288" height="52" fill="url(#sheen)"/>
+    </g>
+
+    <!-- pixel dissolve trailing off to the right -->
+    <g>
+      <rect x="352" y="140" width="21" height="21" rx="3" fill="#f2622a"/>
+      <rect x="352" y="188" width="19" height="19" rx="3" fill="#e8551f"/>
+      <rect x="346" y="234" width="17" height="17" rx="3" fill="#e0489f"/>
+
+      <rect x="388" y="126" width="15" height="15" rx="2.5" fill="#f2622a" opacity=".85"/>
+      <rect x="392" y="176" width="15" height="15" rx="2.5" fill="#e8551f" opacity=".8"/>
+      <rect x="386" y="222" width="14" height="14" rx="2.5" fill="#e0489f" opacity=".8"/>
+      <rect x="384" y="268" width="13" height="13" rx="2.5" fill="#e0489f" opacity=".72"/>
+
+      <rect x="418" y="150" width="12" height="12" rx="2" fill="#f2622a" opacity=".6"/>
+      <rect x="424" y="200" width="11" height="11" rx="2" fill="#e0489f" opacity=".58"/>
+      <rect x="414" y="244" width="11" height="11" rx="2" fill="#e0489f" opacity=".52"/>
+      <rect x="422" y="290" width="10" height="10" rx="2" fill="#e0489f" opacity=".46"/>
+
+      <rect x="446" y="174" width="9" height="9" rx="2" fill="#f2622a" opacity=".38"/>
+      <rect x="452" y="222" width="8" height="8" rx="1.5" fill="#e0489f" opacity=".34"/>
+      <rect x="442" y="264" width="8" height="8" rx="1.5" fill="#e0489f" opacity=".28"/>
+      <rect x="454" y="306" width="7" height="7" rx="1.5" fill="#e0489f" opacity=".22"/>
+
+      <rect x="472" y="198" width="7" height="7" rx="1.5" fill="#f2622a" opacity=".2"/>
+      <rect x="476" y="246" width="6" height="6" rx="1.5" fill="#e0489f" opacity=".17"/>
+      <rect x="468" y="288" width="6" height="6" rx="1.5" fill="#e0489f" opacity=".13"/>
+    </g>
+  </g>
+</svg>

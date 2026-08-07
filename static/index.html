@@ -3,420 +3,583 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>PDF Tool</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <script src="/static/vendor/pdf.min.js"></script>
+<script src="/static/vendor/anime.umd.min.js"></script>
 <style>
-  :root {
-    --bg: #f2f4fb;
-    --text: #14171f; --muted: #5d6674;
-    --glass: rgba(255, 255, 255, .62);
-    --glass-border: rgba(255, 255, 255, .8);
-    --glass-inner: rgba(255, 255, 255, .5);
-    --field: rgba(255, 255, 255, .65);
-    --field-border: rgba(20, 23, 31, .1);
-    --a1: #4f46e5; --a2: #9333ea; --a3: #06b6d4;
-    --accent: var(--a1); --danger: #dc2626;
-    --glow: rgba(99, 102, 241, .25);
-    --shadow: 0 8px 32px rgba(31, 38, 65, .12);
-    --blob1: #a5b4fc; --blob2: #f0abfc; --blob3: #99f6e4;
-    --thumb-shadow: rgba(31, 38, 65, .25);
+  /* ==========================================================
+     Bitcoin DeFi — true void, Bitcoin fire, luminescent depth.
+     Dark only by design: the glow, glass and grid all depend on
+     darkness to read, so there is no light register.
+     ========================================================== */
+
+  @font-face {
+    font-family: 'Space Grotesk';
+    src: url('/static/vendor/space-grotesk-latin.woff2') format('woff2');
+    font-weight: 400 700; font-style: normal; font-display: swap;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #07080e;
-      --text: #eceef4; --muted: #969eae;
-      --glass: rgba(22, 26, 40, .55);
-      --glass-border: rgba(255, 255, 255, .09);
-      --glass-inner: rgba(255, 255, 255, .04);
-      --field: rgba(10, 12, 20, .5);
-      --field-border: rgba(255, 255, 255, .1);
-      --a1: #818cf8; --a2: #c084fc; --a3: #22d3ee;
-      --accent: var(--a1); --danger: #f87171;
-      --glow: rgba(129, 140, 248, .3);
-      --shadow: 0 8px 40px rgba(0, 0, 0, .5);
-      --blob1: #312e81; --blob2: #701a75; --blob3: #134e4a;
-      --thumb-shadow: rgba(0, 0, 0, .6);
-    }
+  @font-face {
+    font-family: 'Inter';
+    src: url('/static/vendor/inter-latin.woff2') format('woff2');
+    font-weight: 400 600; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'JetBrains Mono';
+    src: url('/static/vendor/jetbrains-mono-latin.woff2') format('woff2');
+    font-weight: 400 500; font-style: normal; font-display: swap;
+  }
+
+  :root {
+    --heading: 'Space Grotesk', system-ui, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+    --void: #030304;
+    --surface: #0f1115;
+    --fg: #ffffff;
+    --muted: #94a3b8;
+    --edge: rgba(255, 255, 255, .1);
+    --edge-strong: rgba(255, 255, 255, .2);
+
+    --orange: #f7931a;      /* primary accent */
+    --burnt: #ea580c;       /* gradient partner, deeper */
+    --gold: #ffd600;        /* value / highlight */
+    --danger: #f87171;
+
+    /* Ink for text sitting ON the fire gradient. The design system specifies
+       white here, but white measures 2.30:1 on #F7931A and 3.56:1 on #EA580C —
+       both below the 4.5:1 AA floor at these text sizes. Near-void ink gets
+       8.79:1 and 5.67:1 on the same two stops. */
+    --on-fire: #0a0603;
+
+    --fire: linear-gradient(to right, var(--burnt), var(--orange));
+    --value: linear-gradient(to right, var(--orange), var(--gold));
+
+    /* every shadow in this system is coloured — no black shadows exist */
+    --glow-sm: 0 0 20px -5px rgba(234, 88, 12, .5);
+    --glow-md: 0 0 30px -5px rgba(247, 147, 26, .6);
+    --glow-card: 0 0 30px -10px rgba(247, 147, 26, .25);
+    --glow-amb: 0 0 50px -10px rgba(247, 147, 26, .1);
+    --glow-gold: 0 0 20px rgba(255, 214, 0, .3);
   }
 
   * { box-sizing: border-box; margin: 0; }
-  html { scrollbar-gutter: stable; }
+  html { scrollbar-gutter: stable; color-scheme: dark; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--bg); color: var(--text);
-    min-height: 100vh; padding: 48px 16px 70px;
+    font-family: var(--body);
+    background: var(--void); color: var(--fg);
+    min-height: 100vh; padding: 60px 20px 90px;
     overflow-x: hidden;
+    font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* ---------- animated aurora backdrop ---------- */
-  .blob {
-    position: fixed; border-radius: 50%; filter: blur(90px);
-    z-index: -1; opacity: .7; pointer-events: none;
+  /* ---------- textured void ---------- */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: -3; pointer-events: none;
+    background-size: 50px 50px;
+    background-image:
+      linear-gradient(to right, rgba(30, 41, 59, .5) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(30, 41, 59, .5) 1px, transparent 1px);
+    -webkit-mask-image: radial-gradient(circle at center, #000 38%, transparent 100%);
+    mask-image: radial-gradient(circle at center, #000 38%, transparent 100%);
+  }
+  .glowfield {
+    position: fixed; border-radius: 50%; z-index: -2;
+    pointer-events: none; filter: blur(120px); opacity: .1;
     will-change: transform;
   }
-  .b1 { width: 520px; height: 520px; background: var(--blob1); top: -160px; left: -120px;
-        animation: drift1 26s ease-in-out infinite alternate; }
-  .b2 { width: 460px; height: 460px; background: var(--blob2); top: 10%; right: -140px;
-        animation: drift2 32s ease-in-out infinite alternate; }
-  .b3 { width: 420px; height: 420px; background: var(--blob3); bottom: -180px; left: 30%;
-        animation: drift3 38s ease-in-out infinite alternate; }
-  @keyframes drift1 { to { transform: translate(140px, 90px) scale(1.15); } }
-  @keyframes drift2 { to { transform: translate(-120px, 140px) scale(.9); } }
-  @keyframes drift3 { to { transform: translate(-160px, -100px) scale(1.2); } }
+  .gf1 { width: 620px; height: 620px; background: var(--orange); top: -190px; left: -140px; }
+  .gf2 { width: 520px; height: 520px; background: var(--burnt); top: 24%; right: -180px; }
+  .gf3 { width: 460px; height: 460px; background: var(--gold); bottom: -200px; left: 32%; opacity: .06; }
 
-  .wrap { max-width: 800px; margin: 0 auto; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
 
-  /* ---------- header ---------- */
-  header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
-  .logo {
-    width: 52px; height: 52px; border-radius: 15px; flex: none; position: relative;
-    background: linear-gradient(135deg, var(--a1), var(--a2) 55%, var(--a3));
-    background-size: 200% 200%;
-    animation: sheen 6s ease infinite;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 6px 24px var(--glow);
+  /* ---------- hero ---------- */
+  header { text-align: center; margin-bottom: 46px; }
+
+  .orb { position: relative; width: 112px; height: 112px; margin: 0 auto 24px; display: grid; place-items: center; }
+  .ring { position: absolute; inset: 0; border-radius: 50%; }
+  .ring.r1 { border: 1px solid rgba(247, 147, 26, .14); border-top-color: rgba(247, 147, 26, .85); }
+  .ring.r2 { inset: 13px; border: 1px dashed rgba(255, 214, 0, .3); }
+  .orb-core {
+    position: relative; width: 64px; height: 64px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--fire);
+    box-shadow: 0 0 36px -4px rgba(247, 147, 26, .75);
   }
-  .logo svg { width: 26px; height: 26px; stroke: #fff; }
-  @keyframes sheen { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .orb-core svg {
+    width: 27px; height: 27px; stroke: var(--on-fire); fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    overflow: visible;
+  }
+
+  .trust {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 7px 16px 7px 13px; margin-bottom: 22px;
+    border-radius: 999px; border: 1px solid var(--edge);
+    background: rgba(255, 255, 255, .04);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    font-family: var(--mono); font-size: .64rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .16em; color: var(--muted);
+  }
+  .ping { position: relative; width: 8px; height: 8px; flex: none; }
+  .ping-dot, .ping-wave {
+    position: absolute; inset: 0; border-radius: 50%; background: var(--gold);
+  }
+  .ping-dot { box-shadow: 0 0 9px var(--gold); }
+  .ping-wave { opacity: .6; }
+
   h1 {
-    font-size: 1.7rem; letter-spacing: -.03em; line-height: 1.1;
-    background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3), var(--a1));
-    background-size: 300% 100%;
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: sheen 8s linear infinite;
+    font-family: var(--heading); font-weight: 700;
+    font-size: clamp(2.4rem, 7vw, 4.2rem);
+    line-height: 1.05; letter-spacing: -.03em;
   }
-  .sub { color: var(--muted); font-size: .9rem; margin-top: 3px; }
+  h1 .grad {
+    background: var(--value);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub {
+    margin: 18px auto 0; max-width: 46ch;
+    color: var(--muted); font-size: 1.02rem; line-height: 1.65;
+  }
 
-  /* ---------- glass tabs with sliding indicator ---------- */
+  /* ---------- tab register ---------- */
   .tabs {
     position: relative; display: grid; grid-template-columns: repeat(5, 1fr);
-    gap: 4px; padding: 5px; margin-bottom: 20px;
-    background: var(--glass); border: 1px solid var(--glass-border);
-    border-radius: 18px; backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    box-shadow: var(--shadow);
+    gap: 4px; padding: 6px; margin-bottom: 30px;
+    border-radius: 999px; border: 1px solid var(--edge);
+    background: rgba(255, 255, 255, .04);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   }
   .tab-pill {
-    position: absolute; top: 5px; height: calc(100% - 10px);
-    border-radius: 13px; z-index: 0;
-    background: linear-gradient(135deg, var(--a1), var(--a2));
-    box-shadow: 0 4px 18px var(--glow);
-    transition: left .35s cubic-bezier(.4, 1.4, .4, 1), width .35s cubic-bezier(.4, 1.4, .4, 1);
+    position: absolute; top: 6px; left: 0; width: 0; height: calc(100% - 12px);
+    border-radius: 999px; background: var(--fire); z-index: 0;
+    box-shadow: 0 0 24px -4px rgba(247, 147, 26, .75);
   }
   .tab {
-    position: relative; z-index: 1;
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
-    padding: 12px 8px 10px; border: none; border-radius: 13px;
-    background: none; color: var(--muted); font-size: .84rem; font-weight: 650;
-    font-family: inherit; cursor: pointer; transition: color .25s;
+    position: relative; z-index: 1; min-height: 44px;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    padding: 12px 8px; border: none; background: none; border-radius: 999px;
+    color: var(--muted); font-family: var(--mono);
+    font-size: .68rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .12em;
+    cursor: pointer; transition: color .25s ease;
   }
-  .tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none;
-             stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-             transition: transform .25s; }
-  .tab:hover { color: var(--text); }
-  .tab:hover svg { transform: translateY(-2px); }
-  .tab.active { color: #fff; }
-  @media (max-width: 560px) {
-    .tabs { grid-template-columns: repeat(2, 1fr); }
+  .tab svg {
+    width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .tab:hover { color: var(--fg); }
+  .tab.active { color: var(--on-fire); font-weight: 500; }
+  .tab:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+  @media (max-width: 720px) {
+    .tabs { grid-template-columns: repeat(2, 1fr); border-radius: 22px; }
     .tab-pill { display: none; }
-    .tab.active { background: linear-gradient(135deg, var(--a1), var(--a2)); }
+    .tab.active { background: var(--fire); color: var(--on-fire); box-shadow: var(--glow-sm); }
   }
 
-  /* ---------- glass panel ---------- */
+  /* ---------- panels (blocks) ---------- */
   .panel {
-    background: var(--glass); border: 1px solid var(--glass-border);
-    border-radius: 22px; padding: 26px;
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
-    box-shadow: var(--shadow);
-    animation: rise .45s cubic-bezier(.22, 1, .36, 1);
+    position: relative;
+    background: var(--surface); border: 1px solid var(--edge);
+    border-radius: 24px; padding: 38px 34px;
+    box-shadow: var(--glow-amb);
   }
-  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
   .hidden { display: none !important; }
-  .desc { font-size: .88rem; color: var(--muted); line-height: 1.45; margin: 0 0 16px; }
+
+  /* corner accents — the "selected node" motif */
+  .corner { position: absolute; width: 22px; height: 22px; pointer-events: none; opacity: .8; }
+  .corner.tl { top: -1px; left: -1px; border-top: 2px solid var(--orange); border-left: 2px solid var(--orange); border-top-left-radius: 24px; }
+  .corner.tr { top: -1px; right: -1px; border-top: 2px solid var(--orange); border-right: 2px solid var(--orange); border-top-right-radius: 24px; }
+  .corner.bl { bottom: -1px; left: -1px; border-bottom: 2px solid var(--orange); border-left: 2px solid var(--orange); border-bottom-left-radius: 24px; }
+  .corner.br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--orange); border-right: 2px solid var(--orange); border-bottom-right-radius: 24px; }
+
+  .desc {
+    font-size: 1rem; color: var(--muted); line-height: 1.7;
+    margin: 0 auto 26px; max-width: 58ch; text-align: center;
+  }
 
   /* ---------- dropzone ---------- */
   .dropzone {
-    position: relative; border: 2px dashed var(--field-border); border-radius: 16px;
-    padding: 42px 16px; text-align: center; color: var(--muted); cursor: pointer;
-    font-size: .95rem; background: var(--glass-inner);
-    transition: border-color .25s, box-shadow .25s, transform .25s;
+    position: relative; border: 1px dashed var(--edge-strong); border-radius: 20px;
+    padding: 46px 22px; text-align: center; cursor: pointer;
+    color: var(--muted); background: rgba(255, 255, 255, .02);
+    transition: border-color .3s ease, background-color .3s ease, box-shadow .3s ease, color .3s ease;
   }
-  .dropzone .dz-icon {
-    font-size: 2rem; display: block; margin-bottom: 10px;
-    animation: bob 3.2s ease-in-out infinite;
-  }
-  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
   .dropzone:hover, .dropzone.dragover {
-    border-color: var(--accent); color: var(--text);
-    box-shadow: 0 0 0 5px var(--glow), inset 0 0 50px var(--glow);
-    transform: scale(1.008);
+    border-color: rgba(247, 147, 26, .6); color: var(--fg);
+    background: rgba(247, 147, 26, .04);
+    box-shadow: var(--glow-card);
   }
+  .dz-mark {
+    display: grid; place-items: center;
+    width: 58px; height: 58px; margin: 0 auto 18px; border-radius: 16px;
+    background: rgba(234, 88, 12, .16); border: 1px solid rgba(234, 88, 12, .5);
+    transition: box-shadow .3s ease, background-color .3s ease;
+  }
+  .dropzone:hover .dz-mark, .dropzone.dragover .dz-mark {
+    background: rgba(234, 88, 12, .26);
+    box-shadow: 0 0 22px rgba(234, 88, 12, .45);
+  }
+  .dz-mark svg {
+    width: 24px; height: 24px; stroke: var(--orange); fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .dz-text { font-size: .94rem; }
   .dropzone strong {
-    background: linear-gradient(90deg, var(--a1), var(--a2));
+    font-weight: 600;
+    background: var(--value);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
 
-  /* ---------- file list ---------- */
-  ul.filelist { list-style: none; padding: 0; margin: 16px 0 0; }
+  /* ---------- file register ---------- */
+  ul.filelist { list-style: none; padding: 0; margin: 22px 0 0; }
   ul.filelist li {
-    display: flex; align-items: center; gap: 11px;
-    padding: 11px 13px; margin-bottom: 7px;
-    background: var(--glass-inner); border: 1px solid var(--glass-border);
-    border-radius: 12px; cursor: grab; font-size: .9rem;
-    animation: rise .35s cubic-bezier(.22, 1, .36, 1);
-    transition: border-color .2s, transform .2s, box-shadow .2s;
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 16px; margin-bottom: 9px;
+    border-radius: 14px; border: 1px solid var(--edge);
+    background: rgba(255, 255, 255, .03);
+    cursor: grab; font-size: .92rem;
+    transition: border-color .3s ease, box-shadow .3s ease, background-color .3s ease;
   }
   ul.filelist li:hover {
-    border-color: var(--accent); transform: translateX(3px);
-    box-shadow: 0 2px 14px var(--glow);
+    border-color: rgba(247, 147, 26, .5);
+    box-shadow: var(--glow-card);
+    background: rgba(247, 147, 26, .04);
   }
   ul.filelist li.dragging { opacity: .35; }
-  .handle { color: var(--muted); user-select: none; }
+  .handle { color: var(--muted); user-select: none; font-size: .8rem; }
+  /* holographic node badge */
   .num {
-    background: linear-gradient(135deg, var(--a1), var(--a2)); color: #fff;
-    border-radius: 8px; min-width: 23px; height: 23px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .74rem; font-weight: 700; box-shadow: 0 2px 8px var(--glow);
+    display: grid; place-items: center; flex: none;
+    min-width: 30px; height: 26px; padding: 0 8px; border-radius: 8px;
+    background: rgba(234, 88, 12, .18); border: 1px solid rgba(234, 88, 12, .5);
+    color: var(--orange); font-family: var(--mono);
+    font-size: .7rem; font-weight: 500;
   }
   .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fsize { color: var(--muted); font-size: .78rem; }
+  .fsize {
+    color: var(--muted); font-family: var(--mono); font-size: .68rem;
+    white-space: nowrap; letter-spacing: .04em;
+  }
   .rm {
     border: none; background: none; color: var(--muted); cursor: pointer;
-    font-size: 1rem; padding: 2px 7px; border-radius: 7px; line-height: 1;
-    transition: color .15s, transform .15s;
+    font-size: .85rem; padding: 6px 8px; border-radius: 8px; line-height: 1;
+    transition: color .2s ease, background-color .2s ease;
   }
-  .rm:hover { color: var(--danger); transform: scale(1.25); }
+  .rm:hover { color: var(--danger); background: rgba(248, 113, 113, .1); }
 
-  /* ---------- form bits ---------- */
-  .row { display: flex; gap: 12px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
-  label { font-size: .85rem; color: var(--muted); }
+  /* ---------- form ---------- */
+  .row { display: flex; gap: 16px; align-items: center; margin-top: 24px; flex-wrap: wrap; }
+  label {
+    font-family: var(--mono); font-size: .64rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .14em; color: var(--muted);
+  }
   input[type=text], select {
-    padding: 10px 13px; border: 1px solid var(--field-border); border-radius: 11px;
-    background: var(--field); color: var(--text); font-size: .9rem; font-family: inherit;
-    transition: border-color .2s, box-shadow .2s;
+    flex: 1; min-width: 180px; height: 48px;
+    padding: 8px 16px; border: none; border-bottom: 2px solid var(--edge-strong);
+    border-radius: 8px 8px 0 0; background: rgba(0, 0, 0, .5);
+    color: var(--fg); font-family: var(--body); font-size: .92rem;
+    transition: border-color .2s ease, box-shadow .2s ease;
   }
-  input[type=text]:focus, select:focus {
-    outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--glow);
+  select {
+    appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 34px;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(rgba(0, 0, 0, .5), rgba(0, 0, 0, .5));
+    background-size: 6px 6px, 6px 6px, 100% 100%;
+    background-position: right 18px center, right 12px center, 0 0;
+    background-repeat: no-repeat;
   }
-  input[type=text] { flex: 1; min-width: 160px; }
+  input[type=text]:focus-visible, select:focus-visible {
+    outline: none; border-bottom-color: var(--orange);
+    box-shadow: 0 10px 20px -10px rgba(247, 147, 26, .45);
+  }
+  input::placeholder { color: rgba(255, 255, 255, .3); }
 
+  /* ---------- buttons ---------- */
   .btn {
-    position: relative; overflow: hidden;
-    width: 100%; margin-top: 20px; padding: 14px; border: none; border-radius: 13px;
-    background: linear-gradient(135deg, var(--a1), var(--a2) 60%, var(--a3));
-    background-size: 200% 200%;
-    color: #fff; font-size: 1rem; font-weight: 750; font-family: inherit;
-    letter-spacing: .01em; cursor: pointer;
-    box-shadow: 0 6px 22px var(--glow);
-    transition: transform .15s, box-shadow .2s, background-position .4s, opacity .2s;
+    position: relative; overflow: hidden; display: block;
+    width: 100%; margin-top: 28px; min-height: 52px; padding: 15px 26px;
+    border: none; border-radius: 999px; background: var(--fire); color: var(--on-fire);
+    font-family: var(--body); font-size: .84rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+    cursor: pointer; box-shadow: var(--glow-sm);
+    transition: transform .3s ease, box-shadow .3s ease, opacity .3s ease;
   }
-  .btn::after {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
-    transform: translateX(-120%);
-  }
-  .btn:hover:not(:disabled) {
-    background-position: 100% 50%;
-    transform: translateY(-2px); box-shadow: 0 10px 30px var(--glow);
-  }
-  .btn:hover:not(:disabled)::after { transform: translateX(120%); transition: transform .7s ease; }
-  .btn:active:not(:disabled) { transform: translateY(0); }
+  .btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: var(--glow-md); }
+  .btn:active:not(:disabled) { transform: scale(.995); }
   .btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
-  .btn.secondary {
-    width: auto; margin: 0; padding: 9px 15px; font-size: .84rem; font-weight: 600;
-    background: var(--glass-inner); color: var(--text);
-    border: 1px solid var(--glass-border); box-shadow: none;
+  .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  .btn-prog {
+    position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
+    background: var(--gold); box-shadow: var(--glow-gold);
+    opacity: 0; pointer-events: none;
   }
-  .btn.secondary::after { display: none; }
-  .btn.secondary:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+  .btn.secondary {
+    width: auto; margin: 0; min-height: 40px; padding: 10px 20px;
+    background: transparent; color: var(--fg);
+    border: 2px solid var(--edge-strong); box-shadow: none;
+    font-size: .7rem; letter-spacing: .1em;
+  }
+  .btn.secondary:hover:not(:disabled) {
+    transform: none; border-color: var(--fg);
+    background: rgba(255, 255, 255, .1); box-shadow: none;
+  }
 
-  .msg { margin-top: 14px; font-size: .88rem; text-align: center; min-height: 1.2em; }
+  .msg { margin-top: 22px; font-size: .88rem; text-align: center; min-height: 1.3em; }
   .msg.err { color: var(--danger); }
-  .msg.ok { color: var(--accent); font-weight: 600; }
-  .hint { font-size: .78rem; color: var(--muted); margin-top: 12px; text-align: center; }
+  .msg.ok {
+    font-family: var(--mono); font-size: .8rem; font-weight: 500;
+    color: var(--gold); letter-spacing: .02em;
+  }
+  .hint {
+    font-family: var(--mono); font-size: .64rem; color: var(--muted);
+    margin-top: 16px; text-align: center;
+    text-transform: uppercase; letter-spacing: .14em;
+  }
 
   /* ---------- single-file chip ---------- */
   .filechip {
-    display: flex; align-items: center; gap: 11px; margin-top: 14px;
-    padding: 12px 14px; background: var(--glass-inner);
-    border: 1px solid var(--glass-border); border-radius: 12px; font-size: .9rem;
-    animation: rise .35s cubic-bezier(.22, 1, .36, 1);
+    display: flex; align-items: center; gap: 14px; margin-top: 22px;
+    padding: 15px 16px; border-radius: 14px;
+    border: 1px solid rgba(247, 147, 26, .3);
+    background: rgba(247, 147, 26, .05);
+    box-shadow: var(--glow-card); font-size: .92rem;
   }
-  .filechip .pages-badge { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  .filechip .pages-badge {
+    color: var(--muted); font-family: var(--mono);
+    font-size: .68rem; white-space: nowrap; letter-spacing: .04em;
+  }
 
-  /* ---------- split mode cards ---------- */
-  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 18px; }
-  @media (max-width: 560px) { .modes { grid-template-columns: 1fr; } }
+  /* ---------- mode cards ---------- */
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; }
+  @media (max-width: 640px) { .modes { grid-template-columns: 1fr; } }
   .mode {
-    padding: 12px 13px; border: 1px solid var(--glass-border); border-radius: 13px;
-    background: var(--glass-inner); cursor: pointer; text-align: left; color: var(--text);
-    font-family: inherit; transition: border-color .2s, transform .2s, box-shadow .2s;
+    position: relative; padding: 20px 18px; border-radius: 16px;
+    border: 1px solid var(--edge); background: rgba(255, 255, 255, .03);
+    cursor: pointer; text-align: left; color: var(--fg); font-family: var(--body);
+    transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease, background-color .3s ease;
   }
-  .mode:hover { transform: translateY(-2px); box-shadow: 0 4px 16px var(--glow); }
-  .mode.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
-  .mode b { display: block; font-size: .85rem; margin-bottom: 3px; }
-  .mode.active b {
-    background: linear-gradient(90deg, var(--a1), var(--a2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+  .mode .corner {
+    width: 12px; height: 12px; opacity: .3;
+    transition: opacity .3s ease;
   }
-  .mode span { font-size: .74rem; color: var(--muted); line-height: 1.35; }
+  .mode .corner.tl { border-top-left-radius: 16px; }
+  .mode .corner.br { border-bottom-right-radius: 16px; }
+  .mode:hover {
+    transform: translateY(-4px); border-color: rgba(247, 147, 26, .5);
+    box-shadow: var(--glow-card);
+  }
+  .mode:hover .corner { opacity: .7; }
+  .mode.active {
+    border-color: var(--orange); background: rgba(247, 147, 26, .07);
+    box-shadow: 0 0 30px -10px rgba(247, 147, 26, .35);
+  }
+  .mode.active .corner { opacity: 1; }
+  .mode b {
+    display: block; font-family: var(--heading); font-weight: 600;
+    font-size: .96rem; margin-bottom: 7px; letter-spacing: -.01em;
+  }
+  .mode.active b { color: var(--orange); }
+  .mode span { font-size: .8rem; color: var(--muted); line-height: 1.55; }
   #modes-compress { grid-template-columns: repeat(4, 1fr); }
-  @media (max-width: 680px) { #modes-compress { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 860px) { #modes-compress { grid-template-columns: repeat(2, 1fr); } }
 
-  /* ---------- compress ratio controls ---------- */
-  .chips { display: flex; gap: 6px; }
+  /* ---------- ratio controls ---------- */
+  .chips { display: flex; gap: 8px; }
   .chip {
-    padding: 8px 13px; border-radius: 10px; border: 1px solid var(--field-border);
-    background: var(--field); color: var(--muted); font-family: inherit;
-    font-size: .84rem; font-weight: 650; cursor: pointer;
-    transition: border-color .2s, color .2s, transform .15s;
+    min-height: 38px; padding: 9px 16px; border-radius: 999px;
+    border: 1px solid var(--edge-strong); background: transparent;
+    color: var(--muted); font-family: var(--mono);
+    font-size: .68rem; font-weight: 500; cursor: pointer; letter-spacing: .06em;
+    transition: border-color .25s ease, color .25s ease, background-color .25s ease, box-shadow .25s ease;
   }
-  .chip:hover { border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
+  .chip:hover { border-color: rgba(247, 147, 26, .6); color: var(--fg); }
   .chip.active {
-    background: linear-gradient(135deg, var(--a1), var(--a2)); color: #fff;
-    border-color: transparent; box-shadow: 0 2px 10px var(--glow);
+    background: var(--fire); color: var(--on-fire); border-color: transparent;
+    box-shadow: var(--glow-sm);
   }
-  input[type=range] { flex: 1; min-width: 120px; accent-color: var(--accent); }
+  input[type=range] { flex: 1; min-width: 140px; accent-color: var(--orange); height: 24px; }
   .pct {
-    font-size: .95rem; font-weight: 750; min-width: 44px; text-align: right;
-    background: linear-gradient(90deg, var(--a1), var(--a2));
+    font-family: var(--mono); font-size: 1.1rem; font-weight: 500;
+    min-width: 68px; text-align: right; letter-spacing: .02em;
+    background: var(--value);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
 
   /* ---------- organize grid ---------- */
-  .toolbar { display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
   .toolbar .spacer { flex: 1; }
-  .toolbar .count { font-size: .82rem; color: var(--muted); }
+  .toolbar .count {
+    font-family: var(--mono); font-size: .66rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .12em;
+  }
+  #org-name {
+    font-family: var(--mono); font-size: .8rem; color: var(--orange);
+    flex: none; max-width: 36%; letter-spacing: .02em;
+  }
   .pagegrid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 13px; margin-top: 16px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px; margin-top: 24px;
   }
-  .pagecard {
-    border: 1px solid var(--glass-border); border-radius: 14px;
-    background: var(--glass-inner); padding: 9px; cursor: grab; position: relative;
-    animation: rise .4s cubic-bezier(.22, 1, .36, 1);
-    transition: transform .2s, border-color .2s, box-shadow .2s;
+  .pagecard { cursor: grab; }
+  .pc-body {
+    border: 1px solid var(--edge); border-radius: 16px;
+    background: rgba(255, 255, 255, .03); padding: 12px;
+    transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
   }
-  .pagecard:hover {
-    transform: translateY(-4px); border-color: var(--accent);
-    box-shadow: 0 8px 24px var(--glow);
+  .pagecard:hover .pc-body {
+    transform: translateY(-4px); border-color: rgba(247, 147, 26, .5);
+    box-shadow: var(--glow-card);
   }
-  .pagecard.dragging { opacity: .35; transform: rotate(3deg) scale(.97); }
+  .pagecard.dragging { opacity: .35; }
   .thumb {
-    height: 130px; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; border-radius: 8px;
+    height: 140px; display: flex; align-items: center; justify-content: center;
+    border-radius: 10px; background: rgba(0, 0, 0, .5); overflow: hidden;
   }
-  .thumb canvas {
-    max-width: 118px; max-height: 118px;
-    box-shadow: 0 2px 10px var(--thumb-shadow); border-radius: 3px;
-    background: #fff; transition: transform .35s cubic-bezier(.22, 1, .36, 1);
-  }
-  .pagefoot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-  .pagefoot .num { min-width: 20px; height: 20px; font-size: .7rem; }
-  .pageacts { display: flex; gap: 2px; }
+  .thumb canvas { max-width: 118px; max-height: 118px; background: #fff; border-radius: 2px; }
+  .pagefoot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .pagefoot .num { min-width: 26px; height: 22px; font-size: .66rem; }
+  .pageacts { display: flex; gap: 4px; }
   .pageacts button {
     border: none; background: none; color: var(--muted); cursor: pointer;
-    font-size: .95rem; padding: 2px 6px; border-radius: 7px; line-height: 1;
-    transition: color .15s, transform .15s;
+    font-size: .82rem; padding: 5px 7px; border-radius: 8px; line-height: 1;
+    transition: color .2s ease, background-color .2s ease;
   }
-  .pageacts button:hover { color: var(--accent); transform: scale(1.2); }
-  .pageacts button.del:hover { color: var(--danger); }
-  .grid-status { margin-top: 14px; font-size: .84rem; color: var(--muted); text-align: center; }
+  .pageacts button:hover { color: var(--orange); background: rgba(247, 147, 26, .1); }
+  .pageacts button.del:hover { color: var(--danger); background: rgba(248, 113, 113, .1); }
+  .grid-status {
+    margin-top: 18px; font-family: var(--mono); font-size: .66rem;
+    color: var(--muted); text-align: center;
+    text-transform: uppercase; letter-spacing: .12em;
+  }
 
-  /* ---------- confetti ---------- */
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 
-  footer { text-align: center; margin-top: 26px; font-size: .76rem; color: var(--muted); }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
+  footer {
+    text-align: center; margin-top: 48px;
+    font-family: var(--mono); font-size: .62rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .16em;
   }
 </style>
 </head>
 <body>
-<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="glowfield gf1" aria-hidden="true"></div>
+<div class="glowfield gf2" aria-hidden="true"></div>
+<div class="glowfield gf3" aria-hidden="true"></div>
 <canvas id="confetti"></canvas>
+
+<!-- icon sprite: defined once, shared by the tab register and the dropzones -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-merge" viewBox="0 0 24 24">
+    <path d="M8 7V4h12v12h-3"/><rect x="4" y="8" width="12" height="12" rx="1.5"/>
+  </symbol>
+  <symbol id="i-split" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="7.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="7.5" height="14" rx="1.5"/>
+  </symbol>
+  <symbol id="i-organize" viewBox="0 0 24 24">
+    <rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/>
+    <rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>
+  </symbol>
+  <symbol id="i-jpg" viewBox="0 0 24 24">
+    <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/>
+    <path d="M21 16l-5-5-9 9"/>
+  </symbol>
+  <symbol id="i-compress" viewBox="0 0 24 24">
+    <path d="M12 3v5m0 0L9.5 5.5M12 8l2.5-2.5M12 21v-5m0 0l-2.5 2.5M12 16l2.5 2.5"/>
+    <path d="M4 12h4M16 12h4"/>
+  </symbol>
+</svg>
 
 <div class="wrap">
   <header>
-    <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <path d="M14 2v6h6"/>
-      </svg>
+    <div class="orb" id="orb">
+      <span class="ring r1" aria-hidden="true"></span>
+      <span class="ring r2" aria-hidden="true"></span>
+      <span class="orb-core" id="orb-core">
+        <svg id="orb-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <path d="M14 2v6h6"/>
+        </svg>
+      </span>
     </div>
-    <div>
-      <h1>PDF Tool</h1>
-      <p class="sub">Runs locally — your files never leave this machine.</p>
+
+    <div class="trust" id="trust">
+      <span class="ping" aria-hidden="true">
+        <span class="ping-wave" id="ping-wave"></span>
+        <span class="ping-dot"></span>
+      </span>
+      Local only &middot; no uploads
     </div>
+
+    <h1 id="title">PDF <span class="grad">Tool</span></h1>
+    <p class="sub" id="subtitle">
+      Merge, split, organize and compress. Your files are processed in memory and
+      never leave this machine.
+    </p>
   </header>
 
-  <div class="tabs" id="tabs">
-    <div class="tab-pill" id="tab-pill"></div>
-    <button class="tab active" data-tab="merge">
-      <svg viewBox="0 0 24 24"><path d="M8 7V4h12v12h-3"/><rect x="4" y="8" width="12" height="12" rx="1.5"/></svg>
-      Merge
-    </button>
-    <button class="tab" data-tab="split">
-      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="7.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="7.5" height="14" rx="1.5"/></svg>
-      Split
-    </button>
-    <button class="tab" data-tab="organize">
-      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
-      Organize
-    </button>
-    <button class="tab" data-tab="jpg">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-9 9"/></svg>
-      Images
-    </button>
-    <button class="tab" data-tab="compress">
-      <svg viewBox="0 0 24 24"><path d="M12 3v5m0 0l-2.5-2.5M12 8l2.5-2.5M12 21v-5m0 0l-2.5 2.5M12 16l2.5 2.5"/><path d="M4 12h4M16 12h4"/></svg>
-      Compress
-    </button>
-  </div>
+  <nav class="tabs" id="tabs" aria-label="Tools">
+    <div class="tab-pill" id="tab-pill" aria-hidden="true"></div>
+    <button class="tab active" data-tab="merge"><svg><use href="#i-merge"/></svg>Merge</button>
+    <button class="tab" data-tab="split"><svg><use href="#i-split"/></svg>Split</button>
+    <button class="tab" data-tab="organize"><svg><use href="#i-organize"/></svg>Organize</button>
+    <button class="tab" data-tab="jpg"><svg><use href="#i-jpg"/></svg>Images</button>
+    <button class="tab" data-tab="compress"><svg><use href="#i-compress"/></svg>Compress</button>
+  </nav>
 
-  <!-- ======== MERGE PANEL ======== -->
-  <div class="panel" id="panel-merge">
+  <!-- ======== MERGE ======== -->
+  <section class="panel" id="panel-merge">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Combine two or more PDFs into one file — drag the files to set their order.</p>
     <div class="dropzone" id="drop-merge">
-      <span class="dz-icon">📑</span>
-      Drop PDF files here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-merge"/></svg></span>
+      <span class="dz-text">Drop PDF files here or <strong>click to browse</strong></span>
       <input type="file" id="input-merge" accept="application/pdf,.pdf" multiple hidden>
     </div>
     <ul class="filelist" id="list-merge"></ul>
-    <p class="hint" id="hint-merge" style="display:none">Drag files to change the merge order.</p>
+    <p class="hint hidden" id="hint-merge">Drag files to change the merge order</p>
     <div class="row">
       <label for="name-merge">Output name</label>
       <input type="text" id="name-merge" placeholder="merged.pdf">
     </div>
-    <button class="btn" id="btn-merge" disabled>Merge PDFs</button>
+    <button class="btn" id="btn-merge" disabled><span class="btn-label">Merge PDFs</span><span class="btn-prog"></span></button>
     <p class="msg" id="msg-merge"></p>
-  </div>
+  </section>
 
-  <!-- ======== SPLIT PANEL ======== -->
-  <div class="panel hidden" id="panel-split">
+  <!-- ======== SPLIT ======== -->
+  <section class="panel hidden" id="panel-split">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Pull out specific pages, or break one PDF into several smaller ones.</p>
     <div class="dropzone" id="drop-split">
-      <span class="dz-icon">✂️</span>
-      Drop a PDF here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-split"/></svg></span>
+      <span class="dz-text">Drop a PDF here or <strong>click to browse</strong></span>
       <input type="file" id="input-split" accept="application/pdf,.pdf" hidden>
     </div>
     <div class="filechip hidden" id="chip-split">
       <span class="num">1</span>
       <span class="fname" id="chip-split-name"></span>
       <span class="pages-badge" id="chip-split-pages"></span>
-      <button class="rm" id="chip-split-rm" title="Remove">✕</button>
+      <button class="rm" id="chip-split-rm" title="Remove">&#10005;</button>
     </div>
     <div class="modes" id="modes-split">
       <button class="mode active" data-mode="extract">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Extract pages</b><span>Pull selected pages into one new PDF.</span>
       </button>
       <button class="mode" data-mode="separate">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Split by ranges</b><span>Each range becomes its own PDF, downloaded as a ZIP.</span>
       </button>
       <button class="mode" data-mode="every">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Every page</b><span>One PDF per page, downloaded as a ZIP.</span>
       </button>
     </div>
@@ -428,21 +591,23 @@
       <label for="name-split">Output name</label>
       <input type="text" id="name-split" placeholder="auto">
     </div>
-    <button class="btn" id="btn-split" disabled>Extract pages</button>
+    <button class="btn" id="btn-split" disabled><span class="btn-label">Extract pages</span><span class="btn-prog"></span></button>
     <p class="msg" id="msg-split"></p>
-  </div>
+  </section>
 
-  <!-- ======== ORGANIZE PANEL ======== -->
-  <div class="panel hidden" id="panel-organize">
+  <!-- ======== ORGANIZE ======== -->
+  <section class="panel hidden" id="panel-organize">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Reorder, rotate or remove pages using live thumbnails, then download the rebuilt PDF.</p>
     <div class="dropzone" id="drop-organize">
-      <span class="dz-icon">🗂️</span>
-      Drop a PDF here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-organize"/></svg></span>
+      <span class="dz-text">Drop a PDF here or <strong>click to browse</strong></span>
       <input type="file" id="input-organize" accept="application/pdf,.pdf" hidden>
     </div>
     <div id="organize-ui" class="hidden">
       <div class="toolbar">
-        <span class="fname" id="org-name" style="flex:none;max-width:40%"></span>
+        <span class="fname" id="org-name"></span>
         <span class="count" id="org-count"></span>
         <span class="spacer"></span>
         <button class="btn secondary" id="org-reset">Reset</button>
@@ -450,26 +615,28 @@
       </div>
       <div class="pagegrid" id="pagegrid"></div>
       <p class="grid-status" id="grid-status"></p>
-      <p class="hint">Drag pages to reorder · ↻ rotates · ✕ removes the page.</p>
+      <p class="hint">Drag to reorder &middot; &#8635; rotates &middot; &#10005; removes</p>
       <div class="row">
         <label for="name-organize">Output name</label>
         <input type="text" id="name-organize" placeholder="auto">
       </div>
-      <button class="btn" id="btn-organize">Apply changes &amp; download</button>
+      <button class="btn" id="btn-organize"><span class="btn-label">Apply changes &amp; download</span><span class="btn-prog"></span></button>
     </div>
     <p class="msg" id="msg-organize"></p>
-  </div>
+  </section>
 
-  <!-- ======== IMAGES PANEL ======== -->
-  <div class="panel hidden" id="panel-jpg">
+  <!-- ======== IMAGES ======== -->
+  <section class="panel hidden" id="panel-jpg">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Turn JPG / PNG images into a single PDF — each image becomes one page.</p>
     <div class="dropzone" id="drop-jpg">
-      <span class="dz-icon">🖼️</span>
-      Drop JPG / PNG images here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-jpg"/></svg></span>
+      <span class="dz-text">Drop JPG / PNG images here or <strong>click to browse</strong></span>
       <input type="file" id="input-jpg" accept=".jpg,.jpeg,.png,image/jpeg,image/png" multiple hidden>
     </div>
     <ul class="filelist" id="list-jpg"></ul>
-    <p class="hint" id="hint-jpg" style="display:none">Drag images to set page order — each image becomes one page.</p>
+    <p class="hint hidden" id="hint-jpg">Drag images to set page order</p>
     <div class="row">
       <label for="size-jpg">Page size</label>
       <select id="size-jpg">
@@ -480,31 +647,37 @@
       <label for="name-jpg">Output name</label>
       <input type="text" id="name-jpg" placeholder="images.pdf">
     </div>
-    <button class="btn" id="btn-jpg" disabled>Convert to PDF</button>
+    <button class="btn" id="btn-jpg" disabled><span class="btn-label">Convert to PDF</span><span class="btn-prog"></span></button>
     <p class="msg" id="msg-jpg"></p>
-  </div>
+  </section>
 
-  <!-- ======== COMPRESS PANEL ======== -->
-  <div class="panel hidden" id="panel-compress">
+  <!-- ======== COMPRESS ======== -->
+  <section class="panel hidden" id="panel-compress">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
     <p class="desc">Shrink one PDF or JPG / PNG image. Pick a quality preset, or set exactly how much smaller it should get.</p>
     <div class="dropzone" id="drop-compress">
-      <span class="dz-icon">🗜️</span>
-      Drop a PDF or a JPG / PNG image here or <strong>click to browse</strong>
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-compress"/></svg></span>
+      <span class="dz-text">Drop a PDF or a JPG / PNG image here or <strong>click to browse</strong></span>
       <input type="file" id="input-compress" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
     </div>
     <ul class="filelist" id="list-compress"></ul>
-    <p class="hint" id="hint-compress" style="display:none"></p>
+    <p class="hint hidden" id="hint-compress"></p>
     <div class="modes" id="modes-compress">
       <button class="mode" data-mode="less">
-        <b>Less Compression</b><span>High quality, smaller size savings.</span>
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
+        <b>Less</b><span>High quality, smaller size savings.</span>
       </button>
       <button class="mode active" data-mode="recommended">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Recommended</b><span>Good quality and good compression.</span>
       </button>
       <button class="mode" data-mode="extreme">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Extreme</b><span>High compression, lower quality.</span>
       </button>
       <button class="mode" data-mode="ratio">
+        <span class="corner tl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
         <b>Custom target</b><span>Pick exactly how much smaller.</span>
       </button>
     </div>
@@ -522,12 +695,12 @@
       <label for="name-compress">Output name</label>
       <input type="text" id="name-compress" placeholder="auto">
     </div>
-    <button class="btn" id="btn-compress" disabled>Compress file</button>
+    <button class="btn" id="btn-compress" disabled><span class="btn-label">Compress file</span><span class="btn-prog"></span></button>
     <p class="msg" id="msg-compress"></p>
-    <p class="hint">Compressed images are saved as JPG — PNG transparency becomes white.</p>
-  </div>
+    <p class="hint">Compressed images are saved as JPG &middot; PNG transparency becomes white</p>
+  </section>
 
-  <footer>Merge · Split · Organize · Images · Compress — all in memory, all on your machine.</footer>
+  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress</footer>
 </div>
 
 <script>
@@ -539,54 +712,293 @@ if (window.pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdf.worker.min.js';
 }
 
-const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* ============================================================
+   Motion layer — anime.js v4 (vendored UMD build, global `anime`)
+   Every animation goes through fx() so the whole UI stays correct
+   when anime.js is missing or the user asked for reduced motion.
 
-// ---------- tabs with sliding pill ----------
+   DeFi motion is snappy and precise, like a trading terminal:
+   fast interaction easing, slow ambient loops underneath.
+   ============================================================ */
+const A = window.anime || null;
+const MOTION = !!A && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const stagger = MOTION ? A.stagger : () => 0;
+
+const EASE = 'out(3)';        // entrances
+const EASE_IO = 'inOut(2)';   // travel
+
+// Stand-in returned when motion is off, so callers can always chain.
+const NO_ANIM = { pause() {}, play() {}, revert() {}, cancel() {} };
+
+/** animate() that degrades to "apply the end state immediately". */
+function fx(targets, params) {
+  if (!MOTION) {
+    if (params && params.onComplete) params.onComplete(NO_ANIM);
+    return NO_ANIM;
+  }
+  return A.animate(targets, params);
+}
+
+/** Drop the inline styles an animation left behind, so CSS hover states work again.
+    Start states always go in the animation itself as [from, to] pairs — anime treats
+    whatever is inline at creation time as the baseline to restore, so pre-setting a
+    start state with utils.set() would make clean() revert straight back to it.
+    The corollary: CSS must always hold an animation's END state, or clean() will
+    revert a resting value that only the animation ever set. */
+function clean(anim) {
+  if (MOTION && anim && anim !== NO_ANIM) A.utils.cleanInlineStyles(anim);
+}
+
+/* ---------- ambient: orbitals, energy fields, live-network ping ---------- */
+function ambient() {
+  // Counter-rotating rings read as depth; the bright arc makes the spin visible.
+  fx('.ring.r1', { rotate: 360, duration: 10000, ease: 'linear', loop: true });
+  fx('.ring.r2', { rotate: -360, duration: 15000, ease: 'linear', loop: true });
+
+  // Radial energy fields drift slowly behind the void.
+  if (MOTION) {
+    const r = (a, b) => A.utils.random(a, b);
+    document.querySelectorAll('.glowfield').forEach((el, i) => {
+      fx(el, {
+        x: [{ to: r(-120, 120), duration: 11000 }, { to: r(-120, 120), duration: 13000 }],
+        y: [{ to: r(-90, 90), duration: 12000 }, { to: r(-90, 90), duration: 10000 }],
+        ease: 'inOutSine', loop: true, alternate: true, delay: i * 900,
+      });
+    });
+  }
+
+  // "Live network" ping on the trust badge.
+  fx('#ping-wave', {
+    scale: [1, 2.8], opacity: [.6, 0],
+    duration: 1900, ease: 'out(3)', loop: true,
+  });
+}
+
+/* ---------- title: gradient on the final word ----------
+   Each character of the last word carries its own slice of one continuous
+   gradient, so the characters stay individually transformable — a single
+   background-clip:text on the wrapper would break the moment a child is
+   transformed. Which chars belong to the last word is derived from the text,
+   not from the DOM, so it does not depend on splitText preserving the span. */
+function animateTitle() {
+  const title = document.getElementById('title');
+  const gradEl = title.querySelector('.grad');
+  if (!MOTION) return;
+
+  const text = title.textContent.trim().replace(/\s+/g, ' ');
+  const lastSpace = text.lastIndexOf(' ');
+  if (lastSpace < 0) return;
+  const leadCount = text.slice(0, lastSpace).replace(/\s/g, '').length;
+
+  const chars = A.splitText(title, { chars: true, accessible: true }).chars;
+  if (chars.length <= leadCount) return;
+  const hot = chars.slice(leadCount);
+
+  const grad = 'linear-gradient(90deg, var(--orange), var(--gold), var(--orange))';
+  let width = 0;
+  let offsets = [];
+
+  function paint(shift) {
+    hot.forEach((c, i) => { c.style.backgroundPositionX = (-offsets[i] + shift) + 'px'; });
+  }
+
+  function measure() {
+    const first = hot[0].getBoundingClientRect();
+    const last = hot[hot.length - 1].getBoundingClientRect();
+    width = Math.max(1, last.right - first.left);
+    offsets = hot.map(c => c.getBoundingClientRect().left - first.left);
+    hot.forEach(c => {
+      c.style.backgroundImage = grad;
+      c.style.backgroundSize = (width * 2) + 'px 100%';
+      c.style.backgroundRepeat = 'repeat-x';
+      c.style.webkitBackgroundClip = 'text';
+      c.style.backgroundClip = 'text';
+      c.style.color = 'transparent';
+    });
+    paint(0);
+  }
+
+  measure();
+  if (gradEl) gradEl.style.background = 'none';   // the characters own it now
+
+  const sweep = { t: 0 };
+  fx(sweep, {
+    t: 1, duration: 6500, ease: 'linear', loop: true,
+    onUpdate: () => paint(sweep.t * width * 2),
+  });
+
+  return { chars, remeasure: measure };
+}
+
+/* ---------- which tab starts open (resolved before the intro animates) ---------- */
 const TABS = ['merge', 'split', 'organize', 'jpg', 'compress'];
+let activeTab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'merge';
+document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
+TABS.forEach(n => document.getElementById('panel-' + n).classList.toggle('hidden', n !== activeTab));
+
+/* ---------- intro ---------- */
+function intro() {
+  const orb = document.getElementById('orb');
+  const trust = document.getElementById('trust');
+  const sub = document.getElementById('subtitle');
+  const tabs = document.querySelectorAll('.tab');
+  const panel = document.getElementById('panel-' + activeTab);
+
+  ambient();
+  const title = animateTitle();
+
+  if (!MOTION) return;
+
+  const tl = A.createTimeline({ defaults: { ease: EASE, duration: 560 } });
+
+  tl.add(orb, { scale: [.6, 1], opacity: [0, 1], duration: 700, onComplete: clean }, 0);
+
+  if (A.createDrawable) {
+    const strokes = A.createDrawable('#orb-mark path');
+    tl.add(strokes, { draw: ['0 0', '0 1'], duration: 800, ease: EASE_IO }, 200);
+  }
+
+  tl.add(trust, { opacity: [0, 1], y: [10, 0], duration: 520, onComplete: clean }, 260);
+  if (title) tl.add(title.chars, {
+    opacity: [0, 1], y: [26, 0], delay: stagger(34), duration: 600,
+  }, 340);
+  tl.add(sub, { opacity: [0, 1], y: [10, 0], duration: 540, onComplete: clean }, 560);
+  tl.add(tabs, {
+    opacity: [0, 1], y: [10, 0], delay: stagger(50), duration: 520, onComplete: clean,
+  }, 420);
+  tl.add(panel, { opacity: [0, 1], y: [18, 0], duration: 640, onComplete: clean }, 580);
+
+  return title;
+}
+
+const titleCtl = intro();
+
+/* ============================================================
+   Tabs
+   ============================================================ */
 const pill = document.getElementById('tab-pill');
 
-function positionPill() {
+function positionPill(instant) {
   const active = document.querySelector('.tab.active');
   if (!active) return;
-  pill.style.left = active.offsetLeft + 'px';
-  pill.style.width = active.offsetWidth + 'px';
+  const left = active.offsetLeft;
+  const width = active.offsetWidth;
+  if (instant || !MOTION) {
+    pill.style.left = left + 'px';
+    pill.style.width = width + 'px';
+    return;
+  }
+  fx(pill, { left, width, duration: 320, ease: EASE_IO });
 }
 
 function selectTab(name) {
+  // Tracked in a variable rather than read back from the DOM: during a panel
+  // cross-fade two panels are briefly visible, so the DOM is an unreliable
+  // answer to "which tab is open" if the user clicks again mid-animation.
+  if (activeTab === name) return;
+  const prev = document.getElementById('panel-' + activeTab);
+  const next = document.getElementById('panel-' + name);
+  activeTab = name;
+
   document.querySelectorAll('.tab').forEach(x =>
     x.classList.toggle('active', x.dataset.tab === name));
-  TABS.forEach(n => {
-    const panel = document.getElementById('panel-' + n);
-    const show = n === name;
-    if (show && panel.classList.contains('hidden')) {
-      panel.classList.remove('hidden');
-      panel.style.animation = 'none';
-      void panel.offsetHeight;            // restart the rise animation
-      panel.style.animation = '';
-    } else if (!show) {
-      panel.classList.add('hidden');
-    }
-  });
+
   positionPill();
+
+  const icon = document.querySelector(`.tab[data-tab="${name}"] svg`);
+  if (icon) fx(icon, {
+    scale: [{ to: 1.25, duration: 150 }, { to: 1, duration: 260 }],
+    ease: EASE, onComplete: clean,
+  });
+
+  if (!MOTION) {
+    TABS.forEach(n => document.getElementById('panel-' + n)
+      .classList.toggle('hidden', n !== name));
+    return;
+  }
+
+  fx(prev, {
+    opacity: 0, y: -8, duration: 160, ease: 'out(2)',
+    onComplete: a => { prev.classList.add('hidden'); clean(a); },
+  });
+
+  next.classList.remove('hidden');
+  // Corner accents belong to the frame, not the content — they don't fly in.
+  const kids = next.querySelectorAll(':scope > *:not(.corner)');
+  fx(next, { opacity: [0, 1], duration: 240, delay: 110, onComplete: clean });
+  fx(kids, {
+    opacity: [0, 1], y: [14, 0], duration: 460, ease: EASE,
+    delay: stagger(42, { start: 130 }), onComplete: clean,
+  });
 }
+
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   selectTab(t.dataset.tab);
   history.replaceState(null, '', '#' + t.dataset.tab);
 }));
-if (TABS.includes(location.hash.slice(1))) selectTab(location.hash.slice(1));
-addEventListener('resize', positionPill);
-addEventListener('load', positionPill);
-positionPill();
 
-// ---------- confetti ----------
+positionPill(true);
+addEventListener('load', () => positionPill(true));
+let resizeJob;
+addEventListener('resize', () => {
+  clearTimeout(resizeJob);
+  resizeJob = setTimeout(() => {
+    positionPill(true);
+    if (titleCtl) titleCtl.remeasure();
+  }, 120);
+});
+
+/* ============================================================
+   Reveal / collapse a row without a layout jump
+   ============================================================ */
+function reveal(el, show) {
+  if (!MOTION) { el.classList.toggle('hidden', !show); return; }
+  const isHidden = el.classList.contains('hidden');
+  if (show === !isHidden) return;
+
+  const strip = () => {
+    el.style.overflow = ''; el.style.height = '';
+    el.style.marginTop = ''; el.style.opacity = '';
+  };
+
+  if (show) {
+    el.classList.remove('hidden');
+    const marginTop = parseFloat(getComputedStyle(el).marginTop) || 0;
+    const height = el.scrollHeight;
+    el.style.overflow = 'hidden';
+    fx(el, {
+      height: [0, height], marginTop: [0, marginTop], opacity: [0, 1],
+      duration: 340, ease: EASE, onComplete: strip,
+    });
+  } else {
+    const marginTop = parseFloat(getComputedStyle(el).marginTop) || 0;
+    el.style.overflow = 'hidden';
+    fx(el, {
+      height: [el.offsetHeight, 0], marginTop: [marginTop, 0], opacity: [1, 0],
+      duration: 260, ease: EASE,
+      onComplete: () => { el.classList.add('hidden'); strip(); },
+    });
+  }
+}
+
+/* ============================================================
+   Confetti — blocks of Bitcoin fire, simulated by an anime.js timer
+   ============================================================ */
 function confetti() {
-  if (REDUCED_MOTION) return;
+  if (!MOTION) return;
   const canvas = document.getElementById('confetti');
   const ctx = canvas.getContext('2d');
-  canvas.width = innerWidth; canvas.height = innerHeight;
-  const colors = ['#818cf8', '#c084fc', '#22d3ee', '#f472b6', '#facc15', '#4ade80'];
-  const parts = Array.from({ length: 120 }, () => ({
-    x: innerWidth / 2 + (Math.random() - .5) * 240,
+  const dpr = devicePixelRatio || 1;
+  canvas.width = innerWidth * dpr;
+  canvas.height = innerHeight * dpr;
+  canvas.style.width = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const colors = ['#f7931a', '#ea580c', '#ffd600', '#ffffff', '#fdba74'];
+  const parts = Array.from({ length: 140 }, () => ({
+    x: innerWidth / 2 + (Math.random() - .5) * 260,
     y: innerHeight * .55,
     vx: (Math.random() - .5) * 13,
     vy: -Math.random() * 14 - 5,
@@ -594,79 +1006,147 @@ function confetti() {
     c: colors[Math.random() * colors.length | 0],
     r: Math.random() * Math.PI,
     vr: (Math.random() - .5) * .3,
+    round: Math.random() < .35,
   }));
-  const t0 = performance.now();
-  (function frame(t) {
-    const dt = (t - t0) / 1000;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const p of parts) {
-      p.x += p.vx; p.y += p.vy; p.vy += .42; p.r += p.vr;
-      ctx.save();
-      ctx.translate(p.x, p.y); ctx.rotate(p.r);
-      ctx.globalAlpha = Math.max(0, 1.5 - dt);
-      ctx.fillStyle = p.c;
-      ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * .6);
-      ctx.restore();
-    }
-    if (dt < 1.6) requestAnimationFrame(frame);
-    else ctx.clearRect(0, 0, canvas.width, canvas.height);
-  })(t0);
+
+  A.createTimer({
+    duration: 2000,
+    onUpdate: self => {
+      const fade = 1 - Math.max(0, (self.progress - .55) / .45);
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      for (const p of parts) {
+        p.x += p.vx; p.y += p.vy; p.vy += .42; p.r += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.r);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = p.c;
+        if (p.round) {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.s / 2.4, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s);
+        }
+        ctx.restore();
+      }
+    },
+    onComplete: () => ctx.clearRect(0, 0, innerWidth, innerHeight),
+  });
 }
 
+/* ============================================================
+   Shared helpers
+   ============================================================ */
 function fmtSize(b) {
   if (b > 1048576) return (b / 1048576).toFixed(1) + ' MB';
   if (b > 1024) return (b / 1024).toFixed(0) + ' KB';
   return b + ' B';
 }
 
-function setMsgEl(el, text, cls) { el.textContent = text; el.className = 'msg ' + (cls || ''); }
-
-async function postAndDownload(endpoint, fd, msgEl, verb) {
-  setMsgEl(msgEl, verb + '…');
-  const res = await fetch(endpoint, { method: 'POST', body: fd });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Server error (' + res.status + ')');
+function setMsgEl(el, text, cls) {
+  el.textContent = text;
+  el.className = 'msg ' + (cls || '');
+  if (!text) return;
+  if (cls === 'err') {
+    fx(el, {
+      x: [{ to: -7 }, { to: 7 }, { to: -4 }, { to: 4 }, { to: 0 }],
+      duration: 400, ease: EASE_IO, onComplete: clean,
+    });
+  } else {
+    fx(el, { opacity: [0, 1], y: [6, 0], duration: 320, ease: EASE, onComplete: clean });
   }
-  const blob = await res.blob();
-  const cd = res.headers.get('Content-Disposition') || '';
-  const fname = (cd.match(/filename="?([^";]+)"?/) || [])[1] || 'output.pdf';
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = fname;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  setMsgEl(msgEl, 'Done — ' + fname + ' downloaded.', 'ok');
-  confetti();
-  return { blob, fname };
+}
+
+function setBtnLabel(btn, text) { btn.querySelector('.btn-label').textContent = text; }
+
+/** Indeterminate progress bar that creeps toward the end while we wait. */
+function startProgress(btn) {
+  const bar = btn.querySelector('.btn-prog');
+  if (!bar || !MOTION) return { done() {} };
+  fx(bar, { opacity: [0, 1], duration: 150 });
+  // No real progress to report, so ease asymptotically toward the end instead.
+  const creep = fx(bar, { width: ['0%', '92%'], duration: 14000, ease: 'out(6)' });
+  return {
+    done() {
+      creep.pause();
+      fx(bar, {
+        width: '100%', duration: 200, ease: 'out(2)',
+        onComplete: () => fx(bar, {
+          opacity: 0, duration: 260,
+          onComplete: () => { bar.style.width = '0%'; },
+        }),
+      });
+    },
+  };
+}
+
+function pressFx(btn) {
+  fx(btn, {
+    scale: [{ to: .985, duration: 100 }, { to: 1, duration: 240 }],
+    ease: EASE, onComplete: clean,
+  });
+}
+
+async function postAndDownload(endpoint, fd, msgEl, verb, btn) {
+  setMsgEl(msgEl, verb + '…');
+  const prog = btn ? startProgress(btn) : { done() {} };
+  try {
+    const res = await fetch(endpoint, { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Server error (' + res.status + ')');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const fname = (cd.match(/filename="?([^";]+)"?/) || [])[1] || 'output.pdf';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setMsgEl(msgEl, 'Done — ' + fname + ' downloaded.', 'ok');
+    confetti();
+    return { blob, fname };
+  } finally {
+    prog.done();
+  }
 }
 
 function wireDropzone(drop, input, onFiles) {
   drop.addEventListener('click', () => input.click());
-  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragover', e => {
+    e.preventDefault();
+    drop.classList.add('dragover');
+  });
   drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
   drop.addEventListener('drop', e => {
-    e.preventDefault(); drop.classList.remove('dragover');
+    e.preventDefault();
+    drop.classList.remove('dragover');
     onFiles([...e.dataTransfer.files]);
   });
   input.addEventListener('change', () => { onFiles([...input.files]); input.value = ''; });
 }
 
-// ---------- reusable multi-file uploader with drag-reorder ----------
-function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, doneMsg, single }) {
+/* ============================================================
+   Reusable multi-file uploader with drag-reorder
+   ============================================================ */
+function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, onDone, single }) {
   const list = document.getElementById('list-' + kind);
   const hint = document.getElementById('hint-' + kind);
   const btn = document.getElementById('btn-' + kind);
   const msg = document.getElementById('msg-' + kind);
+  const drop = document.getElementById('drop-' + kind);
   let files = [];
 
-  wireDropzone(document.getElementById('drop-' + kind),
-               document.getElementById('input-' + kind), addFiles);
+  wireDropzone(drop, document.getElementById('input-' + kind), addFiles);
+  list.addEventListener('dragover', onListDragOver);
 
   function addFiles(newFiles) {
     const ok = newFiles.filter(f => accept.test(f.name));
     const skipped = newFiles.length - ok.length;
     let note = skipped ? `${skipped} file(s) skipped (wrong type).` : '';
+    const before = files.length;
     if (single) {
       if (ok.length) files = [ok[0]];
       if (ok.length > 1) note = 'One file at a time — using ' + ok[0].name + '.';
@@ -674,31 +1154,66 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, don
       files.push(...ok);
     }
     setMsgEl(msg, note, note ? 'err' : '');
-    render();
+    render(single ? 0 : before);
   }
 
-  function render() {
+  /** Rebuild the list; rows from `animateFrom` onward fly in. */
+  function render(animateFrom) {
     list.innerHTML = '';
     files.forEach((f, i) => {
       const li = document.createElement('li');
       li.draggable = true;
       li.dataset.index = i;
-      li.innerHTML = `<span class="handle">⠿</span><span class="num">${i + 1}</span>` +
+      li.innerHTML = `<span class="handle">&#8942;&#8942;</span><span class="num">${i + 1}</span>` +
         `<span class="fname">${f.name.replace(/</g, '&lt;')}</span>` +
         `<span class="fsize">${fmtSize(f.size)}</span>` +
-        `<button class="rm" title="Remove">✕</button>`;
-      li.querySelector('.rm').addEventListener('click', () => { files.splice(i, 1); render(); });
+        `<button class="rm" title="Remove">&#10005;</button>`;
+
+      li.querySelector('.rm').addEventListener('click', e => {
+        e.stopPropagation();
+        removeAt(+li.dataset.index, li);
+      });
 
       li.addEventListener('dragstart', () => li.classList.add('dragging'));
       li.addEventListener('dragend', () => {
         li.classList.remove('dragging');
+        // Re-read the order from the DOM before renumbering.
         files = [...list.children].map(el => files[+el.dataset.index]);
-        render();
+        [...list.children].forEach((el, idx) => {
+          el.dataset.index = idx;
+          el.querySelector('.num').textContent = idx + 1;
+        });
+        updateState();
       });
+
       list.appendChild(li);
     });
-    list.addEventListener('dragover', onListDragOver);
-    hint.style.display = files.length > 1 ? '' : 'none';
+
+    const from = typeof animateFrom === 'number' ? animateFrom : files.length;
+    const fresh = [...list.children].slice(from);
+    if (fresh.length) {
+      fx(fresh, {
+        opacity: [0, 1], y: [10, 0], duration: 420, ease: EASE,
+        delay: stagger(55), onComplete: clean,
+      });
+    }
+    updateState();
+  }
+
+  function removeAt(index, li) {
+    if (!MOTION) { files.splice(index, 1); render(); return; }
+    const h = li.offsetHeight;
+    li.style.overflow = 'hidden';
+    fx(li, {
+      height: [h, 0], opacity: [1, 0], x: [0, 22],
+      marginBottom: 0, paddingTop: 0, paddingBottom: 0,
+      duration: 280, ease: EASE,
+      onComplete: () => { files.splice(index, 1); render(); },
+    });
+  }
+
+  function updateState() {
+    reveal(hint, files.length > 1);
     btn.disabled = files.length < minFiles;
   }
 
@@ -712,6 +1227,7 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, don
   }
 
   btn.addEventListener('click', async () => {
+    pressFx(btn);
     btn.disabled = true;
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
@@ -719,9 +1235,10 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, don
     const sizeSel = document.getElementById('size-' + kind);
     if (sizeSel) fd.append('page_size', sizeSel.value);
     if (extraFields) extraFields(fd);
+    const sent = files.slice();
     try {
-      const done = await postAndDownload(endpoint, fd, msg, verb);
-      if (doneMsg) setMsgEl(msg, doneMsg(done.blob, files, done.fname), 'ok');
+      const done = await postAndDownload(endpoint, fd, msg, verb, btn);
+      if (onDone) onDone(done.blob, sent, done.fname, msg);
       files = [];   // fresh start for the next job (keeps the done message)
       render();
     } catch (e) {
@@ -734,14 +1251,16 @@ function makeUploader(kind, { accept, minFiles, endpoint, verb, extraFields, don
 
 makeUploader('merge', {
   accept: /\.pdf$/i, minFiles: 2,
-  endpoint: '/api/merge', verb: 'Merging'
+  endpoint: '/api/merge', verb: 'Merging',
 });
 makeUploader('jpg', {
   accept: /\.(jpe?g|png)$/i, minFiles: 1,
-  endpoint: '/api/jpg-to-pdf', verb: 'Converting'
+  endpoint: '/api/jpg-to-pdf', verb: 'Converting',
 });
 
-// ---------- COMPRESS ----------
+/* ============================================================
+   COMPRESS
+   ============================================================ */
 const compressCtl = (function () {
   let mode = 'recommended';
   let pct = 50;
@@ -751,20 +1270,25 @@ const compressCtl = (function () {
   const chips = document.querySelectorAll('#ratio-chips .chip');
 
   document.querySelectorAll('#modes-compress .mode').forEach(m => m.addEventListener('click', () => {
+    if (mode === m.dataset.mode) return;
     mode = m.dataset.mode;
     document.querySelectorAll('#modes-compress .mode').forEach(x =>
       x.classList.toggle('active', x === m));
-    rowRatio.classList.toggle('hidden', mode !== 'ratio');
+    reveal(rowRatio, mode === 'ratio');
   }));
 
-  function setPct(v) {
+  function setPct(v, pop) {
     pct = v;
     slider.value = v;
     label.textContent = v + '%';
     chips.forEach(c => c.classList.toggle('active', +c.dataset.pct === v));
+    if (pop) fx(label, {
+      scale: [{ to: 1.18, duration: 120 }, { to: 1, duration: 240 }],
+      ease: EASE, onComplete: clean,
+    });
   }
-  chips.forEach(c => c.addEventListener('click', () => setPct(+c.dataset.pct)));
-  slider.addEventListener('input', () => setPct(+slider.value));
+  chips.forEach(c => c.addEventListener('click', () => setPct(+c.dataset.pct, true)));
+  slider.addEventListener('input', () => setPct(+slider.value, false));
 
   return {
     fields(fd) {
@@ -774,17 +1298,36 @@ const compressCtl = (function () {
   };
 })();
 
+/** Count the "before → after" figures up on screen instead of snapping to them. */
+function reportSavings(blob, files, fname, msgEl) {
+  const before = files.reduce((s, f) => s + f.size, 0);
+  const after = blob.size;
+  const saved = Math.max(0, Math.round((1 - after / before) * 100));
+
+  if (saved === 0) {
+    setMsgEl(msgEl, `Done — ${fname}: already optimized, no further savings.`, 'ok');
+    return;
+  }
+  const final = `Done — ${fname}: ${fmtSize(before)} → ${fmtSize(after)} (${saved}% smaller).`;
+  if (!MOTION) { setMsgEl(msgEl, final, 'ok'); return; }
+
+  msgEl.className = 'msg ok';
+  const counter = { size: before, pct: 0 };
+  fx(counter, {
+    size: after, pct: saved, duration: 1000, ease: 'out(4)',
+    onUpdate: () => {
+      msgEl.textContent = `Done — ${fname}: ${fmtSize(before)} → ` +
+        `${fmtSize(counter.size)} (${Math.round(counter.pct)}% smaller).`;
+    },
+    onComplete: () => { msgEl.textContent = final; },
+  });
+}
+
 makeUploader('compress', {
   accept: /\.(pdf|jpe?g|png)$/i, minFiles: 1, single: true,
   endpoint: '/api/compress', verb: 'Compressing',
   extraFields: compressCtl.fields,
-  doneMsg(blob, files, fname) {
-    const before = files.reduce((s, f) => s + f.size, 0);
-    const saved = Math.max(0, Math.round((1 - blob.size / before) * 100));
-    return saved === 0
-      ? `Done — ${fname}: already optimized, no further savings.`
-      : `Done — ${fname}: ${fmtSize(before)} → ${fmtSize(blob.size)} (${saved}% smaller).`;
-  },
+  onDone: reportSavings,
 });
 
 async function loadPdfDoc(file) {
@@ -793,7 +1336,9 @@ async function loadPdfDoc(file) {
   return pdfjsLib.getDocument({ data }).promise;
 }
 
-// ---------- SPLIT ----------
+/* ============================================================
+   SPLIT
+   ============================================================ */
 (function () {
   const drop = document.getElementById('drop-split');
   const chip = document.getElementById('chip-split');
@@ -806,14 +1351,32 @@ async function loadPdfDoc(file) {
   let file = null;
   let mode = 'extract';
 
+  function showChip() {
+    drop.classList.add('hidden');
+    chip.classList.remove('hidden');
+    fx(chip, { opacity: [0, 1], y: [10, 0], duration: 400, ease: EASE, onComplete: clean });
+  }
+
+  function hideChip() {
+    if (!MOTION) { chip.classList.add('hidden'); drop.classList.remove('hidden'); return; }
+    fx(chip, {
+      opacity: 0, y: -8, duration: 200, ease: 'out(2)',
+      onComplete: a => {
+        chip.classList.add('hidden');
+        clean(a);
+        drop.classList.remove('hidden');
+        fx(drop, { opacity: [0, 1], y: [8, 0], duration: 340, ease: EASE, onComplete: clean });
+      },
+    });
+  }
+
   wireDropzone(drop, document.getElementById('input-split'), async fs => {
     const pdf = fs.find(f => /\.pdf$/i.test(f.name));
     if (!pdf) { setMsgEl(msg, 'Please choose a PDF file.', 'err'); return; }
     file = pdf;
     chipName.textContent = pdf.name;
     chipPages.textContent = fmtSize(pdf.size);
-    chip.classList.remove('hidden');
-    drop.classList.add('hidden');
+    showChip();
     btn.disabled = false;
     setMsgEl(msg, '');
     try {
@@ -824,17 +1387,17 @@ async function loadPdfDoc(file) {
 
   document.getElementById('chip-split-rm').addEventListener('click', () => {
     file = null;
-    chip.classList.add('hidden');
-    drop.classList.remove('hidden');
+    hideChip();
     btn.disabled = true;
   });
 
   document.querySelectorAll('#modes-split .mode').forEach(m => m.addEventListener('click', () => {
+    if (mode === m.dataset.mode) return;
     mode = m.dataset.mode;
     document.querySelectorAll('#modes-split .mode').forEach(x =>
       x.classList.toggle('active', x === m));
-    rowRanges.classList.toggle('hidden', mode === 'every');
-    btn.textContent = mode === 'extract' ? 'Extract pages' : 'Split PDF';
+    reveal(rowRanges, mode !== 'every');
+    setBtnLabel(btn, mode === 'extract' ? 'Extract pages' : 'Split PDF');
   }));
 
   btn.addEventListener('click', async () => {
@@ -843,6 +1406,7 @@ async function loadPdfDoc(file) {
       setMsgEl(msg, 'Enter pages to select, e.g. 1-3, 5, 8-', 'err');
       return;
     }
+    pressFx(btn);
     btn.disabled = true;
     const fd = new FormData();
     fd.append('file', file);
@@ -850,12 +1414,11 @@ async function loadPdfDoc(file) {
     fd.append('ranges', rangesInput.value);
     fd.append('output_name', document.getElementById('name-split').value);
     try {
-      await postAndDownload('/api/split', fd, msg, 'Splitting');
+      await postAndDownload('/api/split', fd, msg, 'Splitting', btn);
       // fresh start for the next job (keeps the done message)
       file = null;
       rangesInput.value = '';
-      chip.classList.add('hidden');
-      drop.classList.remove('hidden');
+      hideChip();
     } catch (e) {
       setMsgEl(msg, e.message, 'err');
     } finally {
@@ -864,7 +1427,9 @@ async function loadPdfDoc(file) {
   });
 })();
 
-// ---------- ORGANIZE ----------
+/* ============================================================
+   ORGANIZE
+   ============================================================ */
 (function () {
   const drop = document.getElementById('drop-organize');
   const ui = document.getElementById('organize-ui');
@@ -889,6 +1454,7 @@ async function loadPdfDoc(file) {
     nameEl.textContent = pdf.name;
     drop.classList.add('hidden');
     ui.classList.remove('hidden');
+    fx(ui, { opacity: [0, 1], y: [12, 0], duration: 380, ease: EASE, onComplete: clean });
     grid.innerHTML = '';
     status.textContent = 'Loading pages…';
     try {
@@ -913,7 +1479,10 @@ async function loadPdfDoc(file) {
       canvas.style.width = (vp.width / (window.devicePixelRatio || 1)) + 'px';
       canvas.style.height = (vp.height / (window.devicePixelRatio || 1)) + 'px';
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-      grid.appendChild(makeCard(p - 1, canvas));
+      const card = makeCard(p - 1, canvas);
+      grid.appendChild(card);
+      // Each thumbnail appears as it finishes rendering — a natural stagger.
+      fx(card, { opacity: [0, 1], scale: [.9, 1], duration: 400, ease: EASE, onComplete: clean });
     }
     status.textContent = '';
     updateCount();
@@ -926,6 +1495,9 @@ async function loadPdfDoc(file) {
     card.dataset.index = index;
     card.dataset.rotate = 0;
 
+    const body = document.createElement('div');
+    body.className = 'pc-body';
+
     const thumb = document.createElement('div');
     thumb.className = 'thumb';
     thumb.appendChild(canvas);
@@ -934,25 +1506,53 @@ async function loadPdfDoc(file) {
     foot.className = 'pagefoot';
     foot.innerHTML = `<span class="num">${index + 1}</span>` +
       `<span class="pageacts">` +
-      `<button class="rot" title="Rotate 90°">↻</button>` +
-      `<button class="del" title="Remove page">✕</button></span>`;
+      `<button class="rot" title="Rotate 90°">&#8635;</button>` +
+      `<button class="del" title="Remove page">&#10005;</button></span>`;
 
     foot.querySelector('.rot').addEventListener('click', () => {
       const r = (+card.dataset.rotate + 90) % 360;
       card.dataset.rotate = r;
-      canvas.style.transform = `rotate(${r}deg)`;
+      if (MOTION) fx(canvas, { rotate: r, duration: 320, ease: EASE_IO });
+      else canvas.style.transform = `rotate(${r}deg)`;
     });
-    foot.querySelector('.del').addEventListener('click', () => {
-      card.remove();
-      updateCount();
-    });
+    foot.querySelector('.del').addEventListener('click', () => removeCard(card));
 
     card.addEventListener('dragstart', () => card.classList.add('dragging'));
-    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      renumber();
+    });
 
-    card.appendChild(thumb);
-    card.appendChild(foot);
+    body.appendChild(thumb);
+    body.appendChild(foot);
+    card.appendChild(body);
     return card;
+  }
+
+  /** Remove a page, then slide the survivors into their new slots (FLIP). */
+  function removeCard(card) {
+    if (!MOTION) { card.remove(); renumber(); updateCount(); return; }
+    const others = [...grid.children].filter(c => c !== card);
+    const before = others.map(c => c.getBoundingClientRect());
+    fx(card, {
+      scale: .75, opacity: 0, duration: 220, ease: 'in(2)',
+      onComplete: () => {
+        card.remove();
+        others.forEach((c, i) => {
+          const now = c.getBoundingClientRect();
+          const dx = before[i].left - now.left;
+          const dy = before[i].top - now.top;
+          if (!dx && !dy) return;
+          fx(c, { x: [dx, 0], y: [dy, 0], duration: 380, ease: EASE, onComplete: clean });
+        });
+        renumber();
+        updateCount();
+      },
+    });
+  }
+
+  function renumber() {
+    [...grid.children].forEach((c, i) => { c.querySelector('.num').textContent = i + 1; });
   }
 
   grid.addEventListener('dragover', e => {
@@ -977,6 +1577,7 @@ async function loadPdfDoc(file) {
       grid.innerHTML = '';
       ui.classList.add('hidden');
       drop.classList.remove('hidden');
+      fx(drop, { opacity: [0, 1], y: [8, 0], duration: 360, ease: EASE, onComplete: clean });
     }
   }
 
@@ -995,13 +1596,14 @@ async function loadPdfDoc(file) {
       rotate: +card.dataset.rotate,
     }));
     if (!pages.length) { setMsgEl(msg, 'Keep at least one page.', 'err'); return; }
+    pressFx(btn);
     btn.disabled = true;
     const fd = new FormData();
     fd.append('file', file);
     fd.append('pages', JSON.stringify(pages));
     fd.append('output_name', document.getElementById('name-organize').value);
     try {
-      await postAndDownload('/api/organize', fd, msg, 'Rebuilding PDF');
+      await postAndDownload('/api/organize', fd, msg, 'Rebuilding PDF', btn);
       reset(true);  // fresh start for the next job (keeps the done message)
     } catch (e) {
       setMsgEl(msg, e.message, 'err');
