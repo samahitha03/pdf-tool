@@ -42,6 +42,8 @@ ready for the next job.
 
 - `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
 - `static/index.html` — the UI (single file, no build step)
+- `static/icon.svg` — the app mark; `static/favicon.svg` — a simplified cut of
+  the same artwork for the browser tab
 - `static/vendor/` — pdf.js, anime.js and three webfonts, vendored locally so
   previews, animation and typography all work offline
 - `run.sh` — launcher; creates `.venv` and installs deps on first run
@@ -82,6 +84,14 @@ the mark; and a live-network ping on the trust badge.
 under the 4.5:1 AA floor at this text size. Near-void ink (`--on-fire`) gets
 5.67:1 and 8.79:1 on the same two stops, so every surface filled with the fire
 gradient uses dark ink instead. The look is unchanged; only the label flips.
+
+**The app mark** is vector, not raster. `icon.svg` carries the full artwork —
+violet folder, document sheet, ember card and a pixel-dissolve trail — and
+`favicon.svg` is a simplified cut of it: bolder shapes, no ruled lines, three
+embers instead of eighteen. Detail that reads at 512px turns to mush at 16px,
+so the tab icon deliberately carries less. Being SVG, both stay sharp at any
+size and add no binary asset or extra request. The mark keeps its own violet
+identity rather than being retuned to the Bitcoin-fire palette.
 
 The interface is animated with [anime.js](https://animejs.com/documentation/)
 v4 (MIT, vendored as `static/vendor/anime.umd.min.js`, exposing the global
