@@ -42,51 +42,54 @@ ready for the next job.
 
 - `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
 - `static/index.html` — the UI (single file, no build step)
-- `static/vendor/` — pdf.js, anime.js and the two webfonts, vendored locally so
+- `static/vendor/` — pdf.js, anime.js and three webfonts, vendored locally so
   previews, animation and typography all work offline
 - `run.sh` — launcher; creates `.venv` and installs deps on first run
 
 ## UI
 
-Art Deco, rendered in a four-tone palette: `#9CB080` sage, `#618764` moss,
-`#2B5748` pine, `#273338` slate. All tokens are custom properties at the top of
-`static/index.html`; there is no build step and no utility-class framework.
+The Bitcoin DeFi aesthetic: a true-void ground with Bitcoin-fire energy. All
+tokens are custom properties at the top of `static/index.html`; there is no
+build step and no utility-class framework.
 
-**Two registers.** Light and dark are not inversions of each other — they are
-the two period-authentic Deco grounds. Dark is a ballroom: gilt ornament on a
-near-obsidian slate. Light is a printed poster: deep green ink on champagne
-paper. In each, the palette's most luminous tone plays the "gold" role that
-carries every border, rule and heading — sage on the dark ground, pine on the
-light one.
+**Dark only, by design.** The glow, the glass and the fading grid all depend on
+darkness to read at all, so there is no light register and `prefers-color-scheme`
+is deliberately ignored. `<meta name="color-scheme" content="dark">` tells the
+browser to match.
 
-**Token roles.** `--accent` is the ornament colour, `--accent-bright` its
-metallic highlight, `--on-accent` the ink that sits on a filled accent surface,
-and `--rule`/`--rule-soft` the two weights of frame line. Splitting "colour that
-must read as text" from "colour that must be readable *against*" is what keeps
-both themes accessible from one set of variables — every text/background pair
-clears its WCAG AA minimum in both.
+**Tokens.** `--void` `#030304` is the ground and `--surface` `#0F1115` the
+elevated panels. `--orange` `#F7931A` is the primary accent, `--burnt` `#EA580C`
+its gradient partner, and `--gold` `#FFD600` marks value — used on the
+compression-savings readout and the progress bar. `--fire` and `--value` are the
+two signature gradients. Every shadow in the file is a coloured glow; there are
+no black shadows.
 
-**Deco vocabulary.** Sharp corners throughout (no radii); notched clip-paths on
-filled elements and corner brackets on outlined ones; double frames on panels
-and page thumbnails; a rotated-diamond crest and dropzone marks; Roman numerals
-on the tab register and file list; all-caps display type with 0.2em tracking;
-glows instead of drop shadows; and a backdrop of rotating sunburst rays,
-diagonal crosshatch and film grain. Type is Marcellus (display) and Josefin Sans
-(body), both OFL, vendored as woff2 — 43KB total, no CDN request.
+**Type carries meaning.** Space Grotesk sets headings, Inter sets body copy, and
+JetBrains Mono is reserved for *data* — file sizes, page counts, percentages,
+the tab register and every uppercase label. That split is functional, not
+decorative: anything the user reads as a measurement is monospaced. All three
+are OFL, vendored as variable woff2, 102KB total, no CDN request.
 
-Page thumbnails keep their double frame but **not** the design system's
-default grayscale-until-hover treatment: these are previews the user is reading
-to decide what to keep, so desaturating them would trade function for style.
-Page numbers stay Arabic for the same reason — someone hunting for page 34
-wants "34", not "XXXIV".
+**Vocabulary.** Pill-shaped buttons and tab indicator; glass-morphic tab bar
+over the void; 1px `white/10` borders that shift to orange on hover; rounded-2xl
+panels with orange corner accents; "holographic node" badges for row numbers;
+bottom-border-only inputs over `black/50`; a 50px grid masked to a radial
+vignette; drifting radial energy fields; counter-rotating orbital rings around
+the mark; and a live-network ping on the trust badge.
+
+**One deliberate departure.** The system specifies white text on the
+`#EA580C → #F7931A` button gradient. Measured, that is 3.56:1 and 2.30:1 — both
+under the 4.5:1 AA floor at this text size. Near-void ink (`--on-fire`) gets
+5.67:1 and 8.79:1 on the same two stops, so every surface filled with the fire
+gradient uses dark ink instead. The look is unchanged; only the label flips.
 
 The interface is animated with [anime.js](https://animejs.com/documentation/)
 v4 (MIT, vendored as `static/vendor/anime.umd.min.js`, exposing the global
-`anime`). It drives the intro timeline and crest line-drawing, the tab
-indicator and panel cross-fades, staggered file-list and thumbnail entrances,
-FLIP transitions when a page is deleted, the count-up on compression savings,
-and the confetti. Deco motion is mechanical rather than organic, so everything
-uses fixed-duration eases — no springs, nothing that overshoots.
+`anime`). It drives the intro timeline and mark line-drawing, the tab indicator
+and panel cross-fades, staggered file-list and thumbnail entrances, FLIP
+transitions when a page is deleted, the count-up on compression savings, the
+ambient orbitals and energy fields, and the confetti. DeFi motion is snappy —
+fast interaction easing over slow ambient loops.
 
 Every animation goes through one `fx()` wrapper, so if anime.js fails to load
 or the reader has `prefers-reduced-motion: reduce` set, each animation's end
