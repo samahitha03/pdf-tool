@@ -48,6 +48,14 @@ ready for the next job.
 
 ## UI
 
+Colours come from a four-tone palette — `#9CB080` sage, `#618764` moss,
+`#2B5748` pine, `#273338` slate — defined as custom properties at the top of
+`static/index.html`. Light and dark work the palette from opposite ends: dark
+puts the light greens on buttons and badges with dark ink, light puts the deep
+greens on them with white ink. `--a1`/`--a2` are the text accents and
+`--s1`/`--s2` the accent surfaces, so the two contrast concerns stay separate.
+Every text/background pair clears its WCAG AA minimum in both themes.
+
 The interface is animated with [anime.js](https://animejs.com/documentation/)
 v4 (MIT, vendored as `static/vendor/anime.umd.min.js`, exposing the global
 `anime`). It drives the intro timeline and logo line-drawing, the springy tab

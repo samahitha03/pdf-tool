@@ -8,35 +8,49 @@
 <script src="/static/vendor/pdf.min.js"></script>
 <script src="/static/vendor/anime.umd.min.js"></script>
 <style>
+  /* ----------------------------------------------------------------
+     Palette: #9CB080 sage · #618764 moss · #2B5748 pine · #273338 slate
+     --a1/--a2 are the text accents (readable on --bg); --s1/--s2 are the
+     accent *surfaces* (buttons, pill, badges) and pair with --on-accent.
+     Light and dark use the palette from opposite ends: dark puts the light
+     greens on the surfaces with dark ink, light puts the deep greens on
+     the surfaces with white ink.
+     ---------------------------------------------------------------- */
   :root {
-    --bg: #f2f4fb;
-    --text: #14171f; --muted: #5d6674;
-    --glass: rgba(255, 255, 255, .62);
-    --glass-border: rgba(255, 255, 255, .8);
-    --glass-inner: rgba(255, 255, 255, .5);
-    --field: rgba(255, 255, 255, .65);
-    --field-border: rgba(20, 23, 31, .1);
-    --a1: #4f46e5; --a2: #9333ea; --a3: #06b6d4;
-    --accent: var(--a1); --danger: #dc2626;
-    --glow: rgba(99, 102, 241, .25);
-    --shadow: 0 8px 32px rgba(31, 38, 65, .12);
-    --blob1: #a5b4fc; --blob2: #f0abfc; --blob3: #99f6e4;
-    --thumb-shadow: rgba(31, 38, 65, .25);
+    --bg: #eff3ea;
+    --text: #273338; --muted: #5a6b60;
+    --glass: rgba(255, 255, 255, .66);
+    --glass-border: rgba(255, 255, 255, .85);
+    --glass-inner: rgba(255, 255, 255, .55);
+    --field: rgba(255, 255, 255, .72);
+    --field-border: rgba(39, 51, 56, .14);
+    --a1: #2b5748; --a2: #618764;
+    --s1: #2b5748; --s2: #273338;
+    --on-accent: #ffffff;
+    --accent: var(--a1); --danger: #a8412f;
+    --glow: rgba(43, 87, 72, .2);
+    --shadow: 0 8px 32px rgba(39, 51, 56, .13);
+    --blob1: #b9cba2; --blob2: #9cb080; --blob3: #a9c6b6;
+    --blob-opacity: .55;
+    --thumb-shadow: rgba(39, 51, 56, .22);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #07080e;
-      --text: #eceef4; --muted: #969eae;
-      --glass: rgba(22, 26, 40, .55);
-      --glass-border: rgba(255, 255, 255, .09);
-      --glass-inner: rgba(255, 255, 255, .04);
-      --field: rgba(10, 12, 20, .5);
-      --field-border: rgba(255, 255, 255, .1);
-      --a1: #818cf8; --a2: #c084fc; --a3: #22d3ee;
-      --accent: var(--a1); --danger: #f87171;
-      --glow: rgba(129, 140, 248, .3);
-      --shadow: 0 8px 40px rgba(0, 0, 0, .5);
-      --blob1: #312e81; --blob2: #701a75; --blob3: #134e4a;
+      --bg: #1b2427;
+      --text: #e7eee3; --muted: #9daea2;
+      --glass: rgba(39, 51, 56, .62);
+      --glass-border: rgba(156, 176, 128, .14);
+      --glass-inner: rgba(156, 176, 128, .06);
+      --field: rgba(14, 21, 18, .5);
+      --field-border: rgba(156, 176, 128, .16);
+      --a1: #9cb080; --a2: #618764;
+      --s1: #9cb080; --s2: #618764;
+      --on-accent: #0e1512;
+      --accent: var(--a1); --danger: #e79683;
+      --glow: rgba(156, 176, 128, .28);
+      --shadow: 0 8px 40px rgba(0, 0, 0, .55);
+      --blob1: #2b5748; --blob2: #618764; --blob3: #273338;
+      --blob-opacity: .5;
       --thumb-shadow: rgba(0, 0, 0, .6);
     }
   }
@@ -53,7 +67,7 @@
   /* ---------- aurora backdrop (animated by anime.js) ---------- */
   .blob {
     position: fixed; border-radius: 50%; filter: blur(90px);
-    z-index: -1; opacity: .7; pointer-events: none;
+    z-index: -1; opacity: var(--blob-opacity); pointer-events: none;
     will-change: transform;
   }
   .b1 { width: 520px; height: 520px; background: var(--blob1); top: -160px; left: -120px; }
@@ -66,15 +80,15 @@
   header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
   .logo {
     width: 52px; height: 52px; border-radius: 15px; flex: none; position: relative;
-    background: linear-gradient(135deg, var(--a1), var(--a2) 50%, var(--a3) 75%, var(--a2));
+    background: linear-gradient(135deg, var(--s1), var(--s2) 50%, var(--s1) 75%, var(--s2));
     background-size: 250% 250%;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 6px 24px var(--glow);
   }
-  .logo svg { width: 26px; height: 26px; stroke: #fff; overflow: visible; }
+  .logo svg { width: 26px; height: 26px; stroke: var(--on-accent); overflow: visible; }
   h1 {
     font-size: 1.7rem; letter-spacing: -.03em; line-height: 1.1;
-    background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3), var(--a2), var(--a1));
+    background: linear-gradient(90deg, var(--a1), var(--a2), var(--a1));
     background-size: 200% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
@@ -92,7 +106,7 @@
   .tab-pill {
     position: absolute; top: 5px; left: 0; width: 0; height: calc(100% - 10px);
     border-radius: 13px; z-index: 0;
-    background: linear-gradient(135deg, var(--a1), var(--a2));
+    background: linear-gradient(135deg, var(--s1), var(--s2));
     box-shadow: 0 4px 18px var(--glow);
   }
   .tab {
@@ -105,11 +119,11 @@
   .tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none;
              stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .tab:hover { color: var(--text); }
-  .tab.active { color: #fff; }
+  .tab.active { color: var(--on-accent); }
   @media (max-width: 560px) {
     .tabs { grid-template-columns: repeat(2, 1fr); }
     .tab-pill { display: none; }
-    .tab.active { background: linear-gradient(135deg, var(--a1), var(--a2)); }
+    .tab.active { background: linear-gradient(135deg, var(--s1), var(--s2)); }
   }
 
   /* ---------- glass panel ---------- */
@@ -135,10 +149,7 @@
     border-color: var(--accent); color: var(--text);
     box-shadow: 0 0 0 5px var(--glow), inset 0 0 50px var(--glow);
   }
-  .dropzone strong {
-    background: linear-gradient(90deg, var(--a1), var(--a2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
+  .dropzone strong { color: var(--accent); }
 
   /* ---------- file list ---------- */
   ul.filelist { list-style: none; padding: 0; margin: 16px 0 0; }
@@ -153,7 +164,7 @@
   ul.filelist li.dragging { opacity: .35; }
   .handle { color: var(--muted); user-select: none; }
   .num {
-    background: linear-gradient(135deg, var(--a1), var(--a2)); color: #fff;
+    background: linear-gradient(135deg, var(--s1), var(--s2)); color: var(--on-accent);
     border-radius: 8px; min-width: 23px; height: 23px;
     display: flex; align-items: center; justify-content: center;
     font-size: .74rem; font-weight: 700; box-shadow: 0 2px 8px var(--glow);
@@ -183,9 +194,9 @@
   .btn {
     position: relative; overflow: hidden;
     width: 100%; margin-top: 20px; padding: 14px; border: none; border-radius: 13px;
-    background: linear-gradient(135deg, var(--a1), var(--a2) 60%, var(--a3));
+    background: linear-gradient(135deg, var(--s1), var(--s2) 60%, var(--s1));
     background-size: 200% 200%;
-    color: #fff; font-size: 1rem; font-weight: 750; font-family: inherit;
+    color: var(--on-accent); font-size: 1rem; font-weight: 750; font-family: inherit;
     letter-spacing: .01em; cursor: pointer;
     box-shadow: 0 6px 22px var(--glow);
     transition: box-shadow .2s, background-position .4s, opacity .2s;
@@ -200,7 +211,7 @@
   .btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
   .btn-prog {
     position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
-    background: rgba(255, 255, 255, .85); border-radius: 3px;
+    background: currentColor; border-radius: 3px;
     opacity: 0; pointer-events: none;
   }
   .btn.secondary {
@@ -235,10 +246,7 @@
   .mode:hover { box-shadow: 0 4px 16px var(--glow); }
   .mode.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
   .mode b { display: block; font-size: .85rem; margin-bottom: 3px; }
-  .mode.active b {
-    background: linear-gradient(90deg, var(--a1), var(--a2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
+  .mode.active b { color: var(--accent); }
   .mode span { font-size: .74rem; color: var(--muted); line-height: 1.35; }
   #modes-compress { grid-template-columns: repeat(4, 1fr); }
   @media (max-width: 680px) { #modes-compress { grid-template-columns: repeat(2, 1fr); } }
@@ -253,14 +261,13 @@
   }
   .chip:hover { border-color: var(--accent); color: var(--text); }
   .chip.active {
-    background: linear-gradient(135deg, var(--a1), var(--a2)); color: #fff;
+    background: linear-gradient(135deg, var(--s1), var(--s2)); color: var(--on-accent);
     border-color: transparent; box-shadow: 0 2px 10px var(--glow);
   }
   input[type=range] { flex: 1; min-width: 120px; accent-color: var(--accent); }
   .pct {
     font-size: .95rem; font-weight: 750; min-width: 44px; text-align: right;
-    background: linear-gradient(90deg, var(--a1), var(--a2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+    color: var(--accent);
   }
 
   /* ---------- organize grid ---------- */
@@ -583,7 +590,8 @@ function animateTitle() {
   const chars = A.splitText(title, { chars: true, accessible: true }).chars;
   if (!chars.length) return;
 
-  const grad = 'linear-gradient(90deg, var(--a1), var(--a2), var(--a3), var(--a2), var(--a1))';
+  // Symmetric (a1 → a2 → a1) so the repeated tile joins seamlessly as it drifts.
+  const grad = 'linear-gradient(90deg, var(--a1), var(--a2), var(--a1))';
   let width = 0;
   let offsets = [];
 
@@ -797,7 +805,7 @@ function confetti() {
   canvas.style.height = innerHeight + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const colors = ['#818cf8', '#c084fc', '#22d3ee', '#f472b6', '#facc15', '#4ade80'];
+  const colors = ['#9cb080', '#618764', '#2b5748', '#c3d4b0', '#7fa98d', '#e7eee3'];
   const parts = Array.from({ length: 140 }, () => ({
     x: innerWidth / 2 + (Math.random() - .5) * 260,
     y: innerHeight * .55,
