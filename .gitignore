@@ -1,5 +1,5 @@
 .venv/
 __pycache__/
-server.log
+server.log*
 users.json
 .DS_Store

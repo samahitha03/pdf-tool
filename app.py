@@ -6,11 +6,14 @@ in your browser at http://127.0.0.1:5177
 
 import io
 import json
+import logging
 import os
 import time
 import threading
 import webbrowser
 import zipfile
+from collections import deque
+from functools import wraps
 from threading import Timer
 
 from flask import Flask, request, send_file, send_from_directory, jsonify
@@ -23,10 +26,136 @@ PORT = 5177
 IDLE_TIMEOUT = int(os.environ.get("PDF_TOOL_IDLE_TIMEOUT", "600"))
 MAX_CONTENT_LENGTH = int(os.environ.get("PDF_TOOL_MAX_CONTENT_LENGTH", str(50 * 1024 * 1024)))
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOG_FILE = os.path.join(HERE, "server.log")
+LOG_MAX_BYTES = 1024 * 1024      # rotate to server.log.1 past this
+LOG_BUFFER = 500                 # entries kept in memory for the Activity view
+
 app = Flask(__name__, static_folder="static")
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
+# Werkzeug's access log is one line per asset fetch and per heartbeat, which
+# buries anything worth reading. Keep its warnings, drop the chatter, and log
+# the operations we actually care about ourselves.
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 last_activity = time.time()
+
+# ---------- activity log ----------
+
+_log_lock = threading.Lock()
+_log_entries = deque(maxlen=LOG_BUFFER)
+_log_seq = 0
+
+TOOL_LABELS = {
+    "merge": "Merge", "split": "Split", "organize": "Organize",
+    "jpg": "Images", "compress": "Compress", "server": "Server",
+}
+
+
+def human_bytes(n):
+    if n is None:
+        return "?"
+    if n > 1048576:
+        return f"{n / 1048576:.1f} MB"
+    if n > 1024:
+        return f"{n / 1024:.0f} KB"
+    return f"{n} B"
+
+
+def _rotate_log_if_large():
+    try:
+        if os.path.getsize(LOG_FILE) > LOG_MAX_BYTES:
+            os.replace(LOG_FILE, LOG_FILE + ".1")
+    except OSError:
+        pass
+
+
+def log_event(level, event, msg, **detail):
+    """Record one activity entry: in memory for the UI, on disk to outlive it.
+
+    level is one of info | ok | warn | error.
+    """
+    global _log_seq
+    with _log_lock:
+        _log_seq += 1
+        entry = {
+            "id": _log_seq,
+            "ts": time.time(),
+            "level": level,
+            "event": event,
+            "msg": msg,
+            "detail": {k: v for k, v in detail.items() if v not in (None, "")},
+        }
+        _log_entries.append(entry)
+
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(entry["ts"]))
+        line = f"{stamp}  {level:<5}  {event:<9} {msg}"
+        if entry["detail"]:
+            line += "  " + " ".join(f"{k}={v}" for k, v in entry["detail"].items())
+        try:
+            if _log_seq % 50 == 0:
+                _rotate_log_if_large()
+            with open(LOG_FILE, "a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+        except OSError:
+            pass       # a log that cannot be written must never break the tool
+    return entry
+
+
+def logged(event):
+    """Time an endpoint and record how it went.
+
+    Everything worth logging — which files came in, what came out, how long it
+    took, why it was rejected — is derivable from the request and the response,
+    so the handlers themselves stay untouched.
+    """
+    def decorate(fn):
+        @wraps(fn)
+        def inner(*args, **kwargs):
+            names = [f.filename for f in request.files.getlist("files") if f.filename]
+            one = request.files.get("file")
+            if one is not None and one.filename:
+                names.append(one.filename)
+            sent = request.content_length
+            opts = {k: request.form.get(k) for k in ("mode", "ranges", "ratio", "page_size")
+                    if request.form.get(k)}
+            label = TOOL_LABELS.get(event, event)
+            source = f"{len(names)} files" if len(names) > 3 else (", ".join(names) or "—")
+
+            started = time.perf_counter()
+            try:
+                response = fn(*args, **kwargs)
+            except Exception as exc:
+                log_event("error", event, f"{label} failed: {exc}",
+                          source=source, ms=round((time.perf_counter() - started) * 1000))
+                raise
+            ms = round((time.perf_counter() - started) * 1000)
+
+            if isinstance(response, tuple):
+                body, status = response[0], response[1]
+            else:
+                body, status = response, getattr(response, "status_code", 200)
+
+            if status >= 400:
+                reason = ""
+                try:
+                    reason = (body.get_json(silent=True) or {}).get("error", "")
+                except Exception:
+                    pass
+                log_event("warn", event, reason or f"{label} rejected ({status})",
+                          source=source, ms=ms, **opts)
+            else:
+                disposition = body.headers.get("Content-Disposition", "") if hasattr(body, "headers") else ""
+                out = ""
+                if "filename=" in disposition:
+                    out = disposition.split("filename=", 1)[1].strip('"; ')
+                got = getattr(body, "content_length", None)
+                log_event("ok", event, f"{label}: {source} → {out or 'output'}",
+                          size=f"{human_bytes(sent)} → {human_bytes(got)}", ms=ms, **opts)
+            return response
+        return inner
+    return decorate
 
 
 @app.before_request
@@ -40,10 +169,32 @@ def heartbeat():
     return jsonify(ok=True)
 
 
+@app.get("/api/logs")
+def read_logs():
+    """Entries newer than `since`. Not itself logged — it would never stop."""
+    try:
+        since = int(request.args.get("since", "0"))
+    except ValueError:
+        since = 0
+    with _log_lock:
+        return jsonify(entries=[e for e in _log_entries if e["id"] > since],
+                       cursor=_log_seq)
+
+
+@app.post("/api/logs/clear")
+def clear_logs():
+    """Empties the in-memory view. server.log on disk is left intact."""
+    with _log_lock:
+        _log_entries.clear()
+    log_event("info", "server", "Activity view cleared (server.log kept)")
+    return jsonify(ok=True)
+
+
 def idle_watchdog():
     while True:
         time.sleep(min(30, IDLE_TIMEOUT / 2))
         if time.time() - last_activity > IDLE_TIMEOUT:
+            log_event("warn", "server", f"No activity for {IDLE_TIMEOUT}s — shutting down")
             print(f"No activity for {IDLE_TIMEOUT}s — shutting down.")
             os._exit(0)
 
@@ -114,6 +265,7 @@ def parse_ranges(spec, page_count):
 
 
 @app.post("/api/merge")
+@logged("merge")
 def merge_pdfs():
     files = request.files.getlist("files")
     if len(files) < 2:
@@ -134,6 +286,7 @@ def merge_pdfs():
 
 
 @app.post("/api/split")
+@logged("split")
 def split_pdf():
     f = request.files.get("file")
     if not f:
@@ -178,6 +331,7 @@ def split_pdf():
 
 
 @app.post("/api/organize")
+@logged("organize")
 def organize_pdf():
     f = request.files.get("file")
     if not f:
@@ -211,6 +365,7 @@ def organize_pdf():
 
 
 @app.post("/api/jpg-to-pdf")
+@logged("jpg")
 def jpg_to_pdf():
     files = request.files.getlist("files")
     if not files:
@@ -387,6 +542,7 @@ def compress_pdf(data, mode, ratio):
 
 
 @app.post("/api/compress")
+@logged("compress")
 def compress_file():
     files = request.files.getlist("files")
     if not files:
@@ -440,6 +596,7 @@ def open_browser():
 def main():
     threading.Thread(target=idle_watchdog, daemon=True).start()
     Timer(1.0, open_browser).start()
+    log_event("info", "server", f"PDF Tool started on http://{HOST}:{PORT}")
     print(f"\n  PDF Tool running at http://{HOST}:{PORT}  (Ctrl+C to stop)\n")
     app.run(host=HOST, port=PORT, debug=False)
 
