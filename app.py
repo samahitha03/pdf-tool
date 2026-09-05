@@ -1,4 +1,4 @@
-"""Local PDF Tool — merge, split, organize, compress PDFs and convert images to PDF.
+"""Local PDF Tool — merge, split, organize, unlock, compress PDFs and convert images to PDF.
 
 Runs entirely on your machine. Start with ./run.sh and the UI opens
 in your browser at http://127.0.0.1:5177
@@ -17,7 +17,8 @@ from functools import wraps
 from threading import Timer
 
 from flask import Flask, request, send_file, send_from_directory, jsonify
-from pypdf import PdfWriter, PdfReader
+from pypdf import PdfWriter, PdfReader, PasswordType
+from pypdf.errors import DependencyError, FileNotDecryptedError
 from PIL import Image
 
 HOST = "127.0.0.1"
@@ -49,7 +50,8 @@ _log_seq = 0
 
 TOOL_LABELS = {
     "merge": "Merge", "split": "Split", "organize": "Organize",
-    "jpg": "Images", "compress": "Compress", "server": "Server",
+    "jpg": "Images", "compress": "Compress", "unlock": "Unlock",
+    "server": "Server",
 }
 
 
@@ -217,10 +219,16 @@ class PdfToolError(ValueError):
 def read_pdf(f):
     reader = PdfReader(io.BytesIO(f.read()))
     if reader.is_encrypted:
+        # An empty password opens files that carry only restrictions; anything
+        # else belongs in the Unlock tab, where a password can be given.
         try:
-            reader.decrypt("")
+            opened = reader.decrypt("")
         except Exception:
-            raise PdfToolError(f"'{f.filename}' is password-protected.")
+            opened = PasswordType.NOT_DECRYPTED
+        if opened == PasswordType.NOT_DECRYPTED:
+            raise PdfToolError(
+                f"'{f.filename}' is password-protected — remove its password "
+                "in the Unlock tab first.")
     return reader
 
 
@@ -485,9 +493,12 @@ def rebuild_pdf(data, quality, max_dim):
     reader = PdfReader(io.BytesIO(data))
     if reader.is_encrypted:
         try:
-            reader.decrypt("")
+            opened = reader.decrypt("")
         except Exception:
-            raise PdfToolError("This PDF is password-protected.")
+            opened = PasswordType.NOT_DECRYPTED
+        if opened == PasswordType.NOT_DECRYPTED:
+            raise PdfToolError("This PDF is password-protected — remove its "
+                               "password in the Unlock tab first.")
     writer = PdfWriter(clone_from=reader)
     for page in writer.pages:
         for img in page.images:
@@ -587,6 +598,81 @@ def compress_file():
     return send_file(io.BytesIO(out), mimetype=mime, as_attachment=True,
                      download_name=output_name(f"{stem}_compressed{out_ext}",
                                                out_ext))
+
+
+# ---------- unlock ----------
+
+def unlock_pdf_bytes(data, password):
+    """A copy of a PDF with its protection gone, and how it was opened.
+
+    "Unlocked" here means the file is free of PDF security altogether: no
+    password is needed to open it, and the permission flags that block
+    printing, copying or editing are gone with the encryption that carried
+    them — so the result can be shared and used like any ordinary PDF.
+    """
+    reader = PdfReader(io.BytesIO(data))
+    if not reader.is_encrypted:
+        raise PdfToolError("This PDF is not protected — there is nothing to unlock.")
+
+    try:
+        opened = reader.decrypt(password)
+    except DependencyError:
+        raise PdfToolError(
+            "This PDF uses AES encryption, which needs the 'cryptography' "
+            "package. Install it with: .venv/bin/pip install -r requirements.txt")
+    except NotImplementedError as e:
+        raise PdfToolError(f"This PDF uses an encryption this tool cannot open: {e}")
+    except Exception as e:
+        raise PdfToolError(f"Could not decrypt this PDF: {e}")
+
+    if opened == PasswordType.NOT_DECRYPTED:
+        raise PdfToolError(
+            "That password did not open this PDF — check it and try again."
+            if password else
+            "This PDF needs a password to open — enter it above.")
+
+    # Cloning pulls every object through the decryption filter, and the writer
+    # emits them plain: no /Encrypt dictionary and no permission flags survive.
+    try:
+        writer = PdfWriter(clone_from=reader)
+        out = io.BytesIO()
+        writer.write(out)
+    except FileNotDecryptedError:
+        raise PdfToolError("That password opens the file but cannot decrypt its contents.")
+
+    how = ("owner password (restrictions removed)"
+           if opened == PasswordType.OWNER_PASSWORD else "user password")
+    return out.getvalue(), how
+
+
+@app.post("/api/unlock")
+@logged("unlock")
+def unlock_file():
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify(error="Upload a protected PDF to unlock."), 400
+    if len(files) > 1:
+        return jsonify(error="Unlock one file at a time."), 400
+
+    f = files[0]
+    name = os.path.basename(f.filename or "document.pdf")
+    if not name.lower().endswith(".pdf"):
+        return jsonify(error=f"'{name}' is not a PDF."), 400
+
+    # The password is read straight into a local and never logged: the @logged
+    # decorator only records the form fields it names, and this is not one.
+    password = request.form.get("password", "")
+    try:
+        out, how = unlock_pdf_bytes(f.read(), password)
+    except PdfToolError as e:
+        return jsonify(error=str(e)), 400
+    except Exception as e:
+        return jsonify(error=f"Could not unlock '{name}': {e}"), 400
+
+    log_event("info", "unlock", f"Opened '{name}' with its {how}")
+    stem = os.path.splitext(name)[0]
+    return send_file(io.BytesIO(out), mimetype="application/pdf", as_attachment=True,
+                     download_name=output_name(f"{stem}_unlocked"))
 
 
 def open_browser():

@@ -8,4 +8,8 @@ if [ ! -d ".venv" ]; then
   .venv/bin/pip install --quiet -r requirements.txt
 fi
 
+# The dependency list grows between updates; top up a venv made before it did.
+.venv/bin/python -c "import flask, pypdf, PIL, cryptography" 2>/dev/null ||
+  .venv/bin/pip install --quiet -r requirements.txt
+
 exec .venv/bin/python app.py

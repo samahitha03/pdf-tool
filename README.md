@@ -1,7 +1,7 @@
 # PDF Tool (local)
 
-A small local web app to merge, split, organize and compress PDFs,
-convert JPG/PNG images to PDF, and compress images. Everything runs on
+A small local web app to merge, split, organize, unlock and compress
+PDFs, convert JPG/PNG images to PDF, and compress images. Everything runs on
 your machine — files are processed in memory and never leave your computer.
 
 ## Start
@@ -34,6 +34,14 @@ Press `Ctrl+C` in the terminal to stop.
   the slider — a bounded quality search hits the target with
   consistent speed. Images come back as JPG. If a file can't be made
   smaller, the original is returned unchanged.
+- **Unlock** — drop one password-protected PDF, type the password it opens
+  with, and get back a plain PDF: no password to open it, and none of the
+  restrictions on printing, copying or editing that came with the
+  encryption — so it can be shared like any ordinary PDF. For a file that
+  opens freely but blocks printing or copying, leave the password blank.
+  This removes protection from files you can already open; it does not
+  guess or crack an unknown password. Passwords are used for the one
+  request and never written to the activity log.
 
 - **Activity** — a live view of everything the server has done: one line per
   operation with what went in, what came out, how long it took, and the reason
@@ -45,7 +53,7 @@ ready for the next job.
 
 ## Files
 
-- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
+- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`, `/api/unlock`)
 - `static/index.html` — the UI (single file, no build step)
 - `static/icon.svg` — the app mark; `static/favicon.svg` — a simplified cut of
   the same artwork for the browser tab
