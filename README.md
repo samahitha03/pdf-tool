@@ -1,7 +1,7 @@
 # PDF Tool (local)
 
-A small local web app to merge, split, organize and compress PDFs,
-convert JPG/PNG images to PDF, and compress images. Everything runs on
+A small local web app to merge, split, organize, unlock and compress
+PDFs, convert JPG/PNG images to PDF, and compress images. Everything runs on
 your machine — files are processed in memory and never leave your computer.
 
 ## Start
@@ -34,16 +34,30 @@ Press `Ctrl+C` in the terminal to stop.
   the slider — a bounded quality search hits the target with
   consistent speed. Images come back as JPG. If a file can't be made
   smaller, the original is returned unchanged.
+- **Unlock** — drop one password-protected PDF, type the password it opens
+  with, and get back a plain PDF: no password to open it, and none of the
+  restrictions on printing, copying or editing that came with the
+  encryption — so it can be shared like any ordinary PDF. For a file that
+  opens freely but blocks printing or copying, leave the password blank.
+  This removes protection from files you can already open; it does not
+  guess or crack an unknown password. Passwords are used for the one
+  request and never written to the activity log.
+
+- **Activity** — a live view of everything the server has done: one line per
+  operation with what went in, what came out, how long it took, and the reason
+  for anything rejected. Filter by level, or clear the view. It polls only
+  while the tab is open.
 
 After every successful operation the upload area clears automatically,
 ready for the next job.
 
 ## Files
 
-- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
+- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`, `/api/unlock`)
 - `static/index.html` — the UI (single file, no build step)
 - `static/icon.svg` — the app mark; `static/favicon.svg` — a simplified cut of
   the same artwork for the browser tab
+- `server.log` — the activity log (gitignored, rotates to `server.log.1` at 1 MB)
 - `static/vendor/` — pdf.js, anime.js and three webfonts, vendored locally so
   previews, animation and typography all work offline
 - `run.sh` — launcher; creates `.venv` and installs deps on first run
@@ -92,6 +106,17 @@ embers instead of eighteen. Detail that reads at 512px turns to mush at 16px,
 so the tab icon deliberately carries less. Being SVG, both stay sharp at any
 size and add no binary asset or extra request. The mark keeps its own violet
 identity rather than being retuned to the Bitcoin-fire palette.
+
+**Logging.** Werkzeug's access log is one line per asset fetch and per
+heartbeat, which buries anything worth reading, so it is turned down to
+warnings and the app logs its own operations instead. A `@logged` decorator
+wraps each API endpoint and derives everything from the request and response —
+files in, filename and size out, duration, options, and the rejection reason on
+a 4xx — so the handler bodies are untouched by it. Entries go to an in-memory
+ring buffer (500) that the Activity view reads via `/api/logs?since=<cursor>`,
+and are appended to `server.log` in a plain, ANSI-free format that survives a
+restart. A log that cannot be written is swallowed: logging must never break the
+tool.
 
 The interface is animated with [anime.js](https://animejs.com/documentation/)
 v4 (MIT, vendored as `static/vendor/anime.umd.min.js`, exposing the global

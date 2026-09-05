@@ -147,7 +147,7 @@
 
   /* ---------- tab register ---------- */
   .tabs {
-    position: relative; display: grid; grid-template-columns: repeat(5, 1fr);
+    position: relative; display: grid; grid-template-columns: repeat(7, 1fr);
     gap: 4px; padding: 6px; margin-bottom: 30px;
     border-radius: 999px; border: 1px solid var(--edge);
     background: rgba(255, 255, 255, .04);
@@ -277,7 +277,7 @@
     font-family: var(--mono); font-size: .64rem; font-weight: 500;
     text-transform: uppercase; letter-spacing: .14em; color: var(--muted);
   }
-  input[type=text], select {
+  input[type=text], input[type=password], select {
     flex: 1; min-width: 180px; height: 48px;
     padding: 8px 16px; border: none; border-bottom: 2px solid var(--edge-strong);
     border-radius: 8px 8px 0 0; background: rgba(0, 0, 0, .5);
@@ -294,7 +294,8 @@
     background-position: right 18px center, right 12px center, 0 0;
     background-repeat: no-repeat;
   }
-  input[type=text]:focus-visible, select:focus-visible {
+  input[type=text]:focus-visible, input[type=password]:focus-visible,
+  select:focus-visible {
     outline: none; border-bottom-color: var(--orange);
     box-shadow: 0 10px 20px -10px rgba(247, 147, 26, .45);
   }
@@ -458,6 +459,54 @@
     text-transform: uppercase; letter-spacing: .12em;
   }
 
+  /* ---------- activity log ---------- */
+  .logbar { display: flex; align-items: center; gap: 14px; margin: 24px 0 16px; flex-wrap: wrap; }
+  .logbar .spacer { flex: 1; }
+  .live {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-family: var(--mono); font-size: .62rem;
+    text-transform: uppercase; letter-spacing: .16em; color: var(--muted);
+  }
+  .logcount { font-family: var(--mono); font-size: .64rem; color: var(--muted); letter-spacing: .06em; }
+  .logstream {
+    max-height: 480px; overflow-y: auto; padding: 6px;
+    border: 1px solid var(--edge); border-radius: 16px;
+    background: rgba(0, 0, 0, .45);
+  }
+  .logrow {
+    display: grid; grid-template-columns: 72px 58px 84px 1fr auto;
+    gap: 14px; align-items: baseline;
+    padding: 9px 12px; border-radius: 10px;
+    font-family: var(--mono); font-size: .72rem; line-height: 1.5;
+  }
+  .logrow + .logrow { border-top: 1px solid rgba(255, 255, 255, .05); }
+  .logrow:hover { background: rgba(255, 255, 255, .03); }
+  .logtime { color: var(--muted); }
+  .loglevel {
+    text-align: center; padding: 3px 0; border-radius: 5px;
+    font-size: .58rem; text-transform: uppercase; letter-spacing: .1em;
+  }
+  .logrow[data-level=info]  .loglevel { color: var(--muted);  background: rgba(148, 163, 184, .14); }
+  .logrow[data-level=ok]    .loglevel { color: var(--gold);   background: rgba(255, 214, 0, .13); }
+  .logrow[data-level=warn]  .loglevel { color: var(--orange); background: rgba(247, 147, 26, .15); }
+  .logrow[data-level=error] .loglevel { color: var(--danger); background: rgba(248, 113, 113, .15); }
+  .logevent {
+    color: var(--orange); font-size: .62rem;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .logmsg { color: var(--fg); word-break: break-word; }
+  .logdetail { color: var(--muted); font-size: .66rem; white-space: nowrap; }
+  .logempty {
+    padding: 46px 20px; text-align: center; color: var(--muted);
+    font-family: var(--mono); font-size: .66rem;
+    text-transform: uppercase; letter-spacing: .14em;
+  }
+  @media (max-width: 720px) {
+    .logrow { grid-template-columns: auto auto 1fr; gap: 10px; }
+    .logmsg, .logdetail { grid-column: 1 / -1; }
+    .logdetail { white-space: normal; }
+  }
+
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 
   footer {
@@ -490,6 +539,13 @@
     <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/>
     <path d="M21 16l-5-5-9 9"/>
   </symbol>
+  <symbol id="i-logs" viewBox="0 0 24 24">
+    <path d="M3 12h3.5l2-6 4 12 2.5-6H21"/>
+  </symbol>
+  <symbol id="i-unlock" viewBox="0 0 24 24">
+    <rect x="3.5" y="11" width="13" height="10" rx="2"/>
+    <path d="M10 7a4 4 0 0 1 8 0v4"/>
+  </symbol>
   <symbol id="i-compress" viewBox="0 0 24 24">
     <path d="M12 3v5m0 0L9.5 5.5M12 8l2.5-2.5M12 21v-5m0 0l-2.5 2.5M12 16l2.5 2.5"/>
     <path d="M4 12h4M16 12h4"/>
@@ -519,7 +575,7 @@
 
     <h1 id="title">PDF <span class="grad">Tool</span></h1>
     <p class="sub" id="subtitle">
-      Merge, split, organize and compress. Your files are processed in memory and
+      Merge, split, organize, unlock and compress. Your files are processed in memory and
       never leave this machine.
     </p>
   </header>
@@ -531,6 +587,8 @@
     <button class="tab" data-tab="organize"><svg><use href="#i-organize"/></svg>Organize</button>
     <button class="tab" data-tab="jpg"><svg><use href="#i-jpg"/></svg>Images</button>
     <button class="tab" data-tab="compress"><svg><use href="#i-compress"/></svg>Compress</button>
+    <button class="tab" data-tab="unlock"><svg><use href="#i-unlock"/></svg>Unlock</button>
+    <button class="tab" data-tab="logs"><svg><use href="#i-logs"/></svg>Activity</button>
   </nav>
 
   <!-- ======== MERGE ======== -->
@@ -700,7 +758,62 @@
     <p class="hint">Compressed images are saved as JPG &middot; PNG transparency becomes white</p>
   </section>
 
-  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress</footer>
+  <!-- ======== UNLOCK ======== -->
+  <section class="panel hidden" id="panel-unlock">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
+    <p class="desc">Take the password off a protected PDF. Give it the password the file opens with and you get back a plain PDF — nothing to type to open it, and no restrictions on printing or copying — ready to share.</p>
+    <div class="dropzone" id="drop-unlock">
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-unlock"/></svg></span>
+      <span class="dz-text">Drop a protected PDF here or <strong>click to browse</strong></span>
+      <input type="file" id="input-unlock" accept="application/pdf,.pdf" hidden>
+    </div>
+    <ul class="filelist" id="list-unlock"></ul>
+    <p class="hint hidden" id="hint-unlock"></p>
+    <div class="row">
+      <label for="pw-unlock">Password</label>
+      <input type="password" id="pw-unlock" placeholder="the password this PDF opens with"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="chip" type="button" id="pw-toggle" aria-pressed="false"
+              aria-controls="pw-unlock">Show</button>
+    </div>
+    <div class="row">
+      <label for="name-unlock">Output name</label>
+      <input type="text" id="name-unlock" placeholder="auto">
+    </div>
+    <button class="btn" id="btn-unlock" disabled><span class="btn-label">Remove password &amp; download</span><span class="btn-prog"></span></button>
+    <p class="msg" id="msg-unlock"></p>
+    <p class="hint">Leave the password blank for a PDF that opens freely but blocks printing or copying</p>
+  </section>
+
+  <!-- ======== ACTIVITY ======== -->
+  <section class="panel hidden" id="panel-logs">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
+    <p class="desc">Every operation this server has run, newest last — what went in, what came out, how long it took.</p>
+    <div class="logbar">
+      <span class="live" id="log-live">
+        <span class="ping" aria-hidden="true">
+          <span class="ping-wave" id="log-ping"></span>
+          <span class="ping-dot"></span>
+        </span>
+        Live
+      </span>
+      <div class="chips" id="log-levels">
+        <button class="chip active" data-level="all">All</button>
+        <button class="chip" data-level="ok">Done</button>
+        <button class="chip" data-level="warn">Warnings</button>
+        <button class="chip" data-level="error">Errors</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="logcount" id="log-count"></span>
+      <button class="btn secondary" id="log-clear">Clear</button>
+    </div>
+    <div class="logstream" id="logstream" role="log" aria-live="polite" aria-label="Server activity"></div>
+    <p class="hint">Also appended to server.log &middot; clearing empties this view only</p>
+  </section>
+
+  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress &middot; Activity</footer>
 </div>
 
 <script>
@@ -832,7 +945,7 @@ function animateTitle() {
 }
 
 /* ---------- which tab starts open (resolved before the intro animates) ---------- */
-const TABS = ['merge', 'split', 'organize', 'jpg', 'compress'];
+const TABS = ['merge', 'split', 'organize', 'jpg', 'compress', 'unlock', 'logs'];
 let activeTab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'merge';
 document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
 TABS.forEach(n => document.getElementById('panel-' + n).classList.toggle('hidden', n !== activeTab));
@@ -878,6 +991,7 @@ const titleCtl = intro();
    Tabs
    ============================================================ */
 const pill = document.getElementById('tab-pill');
+let logsView = null;   // assigned once the Activity view is built, below
 
 function positionPill(instant) {
   const active = document.querySelector('.tab.active');
@@ -900,6 +1014,8 @@ function selectTab(name) {
   const prev = document.getElementById('panel-' + activeTab);
   const next = document.getElementById('panel-' + name);
   activeTab = name;
+  // Only poll the log while it is actually being looked at.
+  if (logsView) logsView.setActive(name === 'logs');
 
   document.querySelectorAll('.tab').forEach(x =>
     x.classList.toggle('active', x.dataset.tab === name));
@@ -1329,6 +1445,206 @@ makeUploader('compress', {
   extraFields: compressCtl.fields,
   onDone: reportSavings,
 });
+
+/* ============================================================
+   UNLOCK — hand back a PDF with its protection gone
+   ============================================================ */
+const unlockCtl = (function () {
+  const pw = document.getElementById('pw-unlock');
+  const eye = document.getElementById('pw-toggle');
+  const btn = document.getElementById('btn-unlock');
+
+  eye.addEventListener('click', () => {
+    const shown = pw.type === 'text';
+    pw.type = shown ? 'password' : 'text';
+    eye.textContent = shown ? 'Show' : 'Hide';
+    eye.classList.toggle('active', !shown);
+    eye.setAttribute('aria-pressed', String(!shown));
+    pw.focus();
+  });
+
+  // Typing a password and pressing Enter is the obvious way to run this one.
+  pw.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !btn.disabled) btn.click();
+  });
+
+  function hide() {
+    pw.type = 'password';
+    eye.textContent = 'Show';
+    eye.classList.remove('active');
+    eye.setAttribute('aria-pressed', 'false');
+  }
+
+  return {
+    fields(fd) { fd.append('password', pw.value); },
+    /** A password belongs to the file that just left — never leave it on screen. */
+    clear() { pw.value = ''; hide(); },
+  };
+})();
+
+makeUploader('unlock', {
+  accept: /\.pdf$/i, minFiles: 1, single: true,
+  endpoint: '/api/unlock', verb: 'Unlocking',
+  extraFields: unlockCtl.fields,
+  onDone: (blob, files, fname, msgEl) => {
+    unlockCtl.clear();
+    setMsgEl(msgEl, `Done — ${fname} downloaded, with no password on it.`, 'ok');
+  },
+});
+
+/* ============================================================
+   ACTIVITY — a live view of what the server has actually done
+   ============================================================ */
+logsView = (function () {
+  const stream = document.getElementById('logstream');
+  const countEl = document.getElementById('log-count');
+  const chips = document.querySelectorAll('#log-levels .chip');
+  const POLL_MS = 2000;
+
+  let entries = [];
+  let cursor = 0;
+  let level = 'all';
+  let timer = null;
+  let inFlight = false;
+
+  const pad = n => String(n).padStart(2, '0');
+  const clockOf = ts => {
+    const d = new Date(ts * 1000);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
+  function detailText(d) {
+    const bits = [];
+    if (d.size) bits.push(d.size);
+    if (d.ms !== undefined) bits.push(d.ms + ' ms');
+    if (d.mode) bits.push(d.mode);
+    if (d.ratio) bits.push(d.ratio + '%');
+    if (d.ranges) bits.push('pages ' + d.ranges);
+    if (d.page_size) bits.push(d.page_size);
+    if (d.source && !d.size) bits.push(d.source);
+    return bits.join('  ·  ');
+  }
+
+  /** Built with textContent, never innerHTML — messages carry user filenames. */
+  function buildRow(e) {
+    const row = document.createElement('div');
+    row.className = 'logrow';
+    row.dataset.level = e.level;
+    const cell = (cls, text) => {
+      const el = document.createElement('span');
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
+    row.append(
+      cell('logtime', clockOf(e.ts)),
+      cell('loglevel', e.level),
+      cell('logevent', e.event),
+      cell('logmsg', e.msg),
+      cell('logdetail', detailText(e.detail || {})),
+    );
+    return row;
+  }
+
+  const passes = e => level === 'all' || e.level === level;
+  const pinnedToBottom = () =>
+    stream.scrollHeight - stream.scrollTop - stream.clientHeight < 48;
+
+  function showEmpty() {
+    stream.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'logempty';
+    p.textContent = entries.length ? 'Nothing at this level' : 'No activity yet';
+    stream.appendChild(p);
+  }
+
+  function updateCount() {
+    const shown = entries.filter(passes).length;
+    countEl.textContent = shown === entries.length
+      ? `${entries.length} entries`
+      : `${shown} of ${entries.length}`;
+  }
+
+  function renderAll() {
+    const visible = entries.filter(passes);
+    if (!visible.length) { showEmpty(); updateCount(); return; }
+    stream.innerHTML = '';
+    visible.forEach(e => stream.appendChild(buildRow(e)));
+    stream.scrollTop = stream.scrollHeight;
+    updateCount();
+  }
+
+  function append(fresh) {
+    const visible = fresh.filter(passes);
+    if (!visible.length) { updateCount(); return; }
+    const empty = stream.querySelector('.logempty');
+    if (empty) stream.innerHTML = '';
+    const stick = pinnedToBottom();
+    const added = visible.map(e => { const r = buildRow(e); stream.appendChild(r); return r; });
+    fx(added, {
+      opacity: [0, 1], x: [-10, 0], duration: 320, ease: EASE,
+      delay: stagger(40), onComplete: clean,
+    });
+    if (stick) stream.scrollTop = stream.scrollHeight;
+    updateCount();
+  }
+
+  async function poll() {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      const res = await fetch('/api/logs?since=' + cursor);
+      if (!res.ok) return;
+      const data = await res.json();
+      cursor = data.cursor;
+      if (data.entries && data.entries.length) {
+        entries.push(...data.entries);
+        if (entries.length > 500) entries = entries.slice(-500);
+        append(data.entries);
+      }
+    } catch (e) {
+      /* server may be restarting; the next tick retries */
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  chips.forEach(c => c.addEventListener('click', () => {
+    if (level === c.dataset.level) return;
+    level = c.dataset.level;
+    chips.forEach(x => x.classList.toggle('active', x === c));
+    renderAll();
+  }));
+
+  document.getElementById('log-clear').addEventListener('click', async () => {
+    try { await fetch('/api/logs/clear', { method: 'POST' }); } catch (e) { /* view-only */ }
+    entries = [];
+    renderAll();
+  });
+
+  fx('#log-ping', {
+    scale: [1, 2.8], opacity: [.6, 0],
+    duration: 1900, ease: 'out(3)', loop: true,
+  });
+
+  showEmpty();
+
+  return {
+    setActive(on) {
+      if (on) {
+        if (timer) return;
+        poll();
+        timer = setInterval(poll, POLL_MS);
+      } else if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    },
+  };
+})();
+
+// The Activity tab can be the one open on load (#logs deep link).
+if (activeTab === 'logs') logsView.setActive(true);
 
 async function loadPdfDoc(file) {
   if (!window.pdfjsLib) return null;
