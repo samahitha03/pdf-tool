@@ -50,6 +50,7 @@ Press `Ctrl+C` in the terminal to stop.
 
 After every successful operation the upload area clears automatically,
 ready for the next job.
+<img width="3420" height="1866" alt="image" src="https://github.com/user-attachments/assets/b8251560-34ff-4f69-83fb-da735a9a7aac" />
 
 ## Files
 
