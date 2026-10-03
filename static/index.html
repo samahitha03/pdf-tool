@@ -6,8 +6,17 @@
 <meta name="color-scheme" content="dark">
 <title>PDF Tool</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<script src="/static/vendor/pdf.min.js"></script>
 <script src="/static/vendor/anime.umd.min.js"></script>
+<script type="module">
+  // pdf.js ships ESM only from v4 on, so it loads as a module — which is
+  // deferred, and therefore lands after the classic script below. Anything
+  // that needs it awaits pdfjsReady rather than reading pdfjsLib directly.
+  window.pdfjsReady = import("/static/vendor/pdf.min.mjs").then(lib => {
+    lib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdf.worker.min.mjs";
+    window.pdfjsLib = lib;
+    return lib;
+  }).catch(() => null);
+</script>
 <style>
   /* ==========================================================
      Bitcoin DeFi — true void, Bitcoin fire, luminescent depth.
@@ -813,17 +822,13 @@
     <p class="hint">Also appended to server.log &middot; clearing empties this view only</p>
   </section>
 
-  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress &middot; Activity</footer>
+  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress &middot; Unlock &middot; Activity</footer>
 </div>
 
 <script>
 // Keep the server alive while a tab is open; it shuts itself down
 // ~10 minutes after the last tab closes.
 setInterval(() => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {}), 30000);
-
-if (window.pdfjsLib) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdf.worker.min.js';
-}
 
 /* ============================================================
    Motion layer — anime.js v4 (vendored UMD build, global `anime`)
@@ -1204,11 +1209,17 @@ function pressFx(btn) {
   });
 }
 
+// The server mints a new key each launch, so a tab left open across a
+// restart still looks fine but can no longer talk to it. Say so plainly.
+const SESSION_LOST = 'This tab lost its key — the tool was restarted. ' +
+  'Reopen it with: pdftool stop && pdftool';
+
 async function postAndDownload(endpoint, fd, msgEl, verb, btn) {
   setMsgEl(msgEl, verb + '…');
   const prog = btn ? startProgress(btn) : { done() {} };
   try {
     const res = await fetch(endpoint, { method: 'POST', body: fd });
+    if (res.status === 403) throw new Error(SESSION_LOST);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Server error (' + res.status + ')');
@@ -1558,6 +1569,15 @@ logsView = (function () {
     stream.appendChild(p);
   }
 
+  /** Polling stopped because the key died; leave the reason on screen. */
+  function showLost() {
+    stream.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'logempty';
+    p.textContent = SESSION_LOST;
+    stream.appendChild(p);
+  }
+
   function updateCount() {
     const shown = entries.filter(passes).length;
     countEl.textContent = shown === entries.length
@@ -1594,6 +1614,7 @@ logsView = (function () {
     inFlight = true;
     try {
       const res = await fetch('/api/logs?since=' + cursor);
+      if (res.status === 403) { setActive(false); showLost(); return; }
       if (!res.ok) return;
       const data = await res.json();
       cursor = data.cursor;
@@ -1646,10 +1667,16 @@ logsView = (function () {
 // The Activity tab can be the one open on load (#logs deep link).
 if (activeTab === 'logs') logsView.setActive(true);
 
+/** The pdf.js namespace once its module has landed, or null if it never did. */
+function pdfjs() {
+  return window.pdfjsReady || Promise.resolve(window.pdfjsLib || null);
+}
+
 async function loadPdfDoc(file) {
-  if (!window.pdfjsLib) return null;
+  const lib = await pdfjs();
+  if (!lib) return null;
   const data = await file.arrayBuffer();
-  return pdfjsLib.getDocument({ data }).promise;
+  return lib.getDocument({ data }).promise;
 }
 
 /* ============================================================
@@ -1761,7 +1788,7 @@ async function loadPdfDoc(file) {
   wireDropzone(drop, document.getElementById('input-organize'), async fs => {
     const pdf = fs.find(f => /\.pdf$/i.test(f.name));
     if (!pdf) { setMsgEl(msg, 'Please choose a PDF file.', 'err'); return; }
-    if (!window.pdfjsLib) {
+    if (!await pdfjs()) {
       setMsgEl(msg, 'Page previews unavailable (pdf.js failed to load).', 'err');
       return;
     }
