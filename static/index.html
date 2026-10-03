@@ -6,8 +6,17 @@
 <meta name="color-scheme" content="dark">
 <title>PDF Tool</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<script src="/static/vendor/pdf.min.js"></script>
 <script src="/static/vendor/anime.umd.min.js"></script>
+<script type="module">
+  // pdf.js ships ESM only from v4 on, so it loads as a module — which is
+  // deferred, and therefore lands after the classic script below. Anything
+  // that needs it awaits pdfjsReady rather than reading pdfjsLib directly.
+  window.pdfjsReady = import("/static/vendor/pdf.min.mjs").then(lib => {
+    lib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdf.worker.min.mjs";
+    window.pdfjsLib = lib;
+    return lib;
+  }).catch(() => null);
+</script>
 <style>
   /* ==========================================================
      Bitcoin DeFi — true void, Bitcoin fire, luminescent depth.
@@ -147,7 +156,7 @@
 
   /* ---------- tab register ---------- */
   .tabs {
-    position: relative; display: grid; grid-template-columns: repeat(6, 1fr);
+    position: relative; display: grid; grid-template-columns: repeat(7, 1fr);
     gap: 4px; padding: 6px; margin-bottom: 30px;
     border-radius: 999px; border: 1px solid var(--edge);
     background: rgba(255, 255, 255, .04);
@@ -277,7 +286,7 @@
     font-family: var(--mono); font-size: .64rem; font-weight: 500;
     text-transform: uppercase; letter-spacing: .14em; color: var(--muted);
   }
-  input[type=text], select {
+  input[type=text], input[type=password], select {
     flex: 1; min-width: 180px; height: 48px;
     padding: 8px 16px; border: none; border-bottom: 2px solid var(--edge-strong);
     border-radius: 8px 8px 0 0; background: rgba(0, 0, 0, .5);
@@ -294,7 +303,8 @@
     background-position: right 18px center, right 12px center, 0 0;
     background-repeat: no-repeat;
   }
-  input[type=text]:focus-visible, select:focus-visible {
+  input[type=text]:focus-visible, input[type=password]:focus-visible,
+  select:focus-visible {
     outline: none; border-bottom-color: var(--orange);
     box-shadow: 0 10px 20px -10px rgba(247, 147, 26, .45);
   }
@@ -541,6 +551,10 @@
   <symbol id="i-logs" viewBox="0 0 24 24">
     <path d="M3 12h3.5l2-6 4 12 2.5-6H21"/>
   </symbol>
+  <symbol id="i-unlock" viewBox="0 0 24 24">
+    <rect x="3.5" y="11" width="13" height="10" rx="2"/>
+    <path d="M10 7a4 4 0 0 1 8 0v4"/>
+  </symbol>
   <symbol id="i-compress" viewBox="0 0 24 24">
     <path d="M12 3v5m0 0L9.5 5.5M12 8l2.5-2.5M12 21v-5m0 0l-2.5 2.5M12 16l2.5 2.5"/>
     <path d="M4 12h4M16 12h4"/>
@@ -570,7 +584,7 @@
 
     <h1 id="title">PDF <span class="grad">Tool</span></h1>
     <p class="sub" id="subtitle">
-      Merge, split, organize and compress. Your files are processed in memory and
+      Merge, split, organize, unlock and compress. Your files are processed in memory and
       never leave this machine.
     </p>
   </header>
@@ -582,6 +596,7 @@
     <button class="tab" data-tab="organize"><svg><use href="#i-organize"/></svg>Organize</button>
     <button class="tab" data-tab="jpg"><svg><use href="#i-jpg"/></svg>Images</button>
     <button class="tab" data-tab="compress"><svg><use href="#i-compress"/></svg>Compress</button>
+    <button class="tab" data-tab="unlock"><svg><use href="#i-unlock"/></svg>Unlock</button>
     <button class="tab" data-tab="logs"><svg><use href="#i-logs"/></svg>Activity</button>
   </nav>
 
@@ -752,6 +767,34 @@
     <p class="hint">Compressed images are saved as JPG &middot; PNG transparency becomes white</p>
   </section>
 
+  <!-- ======== UNLOCK ======== -->
+  <section class="panel hidden" id="panel-unlock">
+    <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+    <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
+    <p class="desc">Take the password off a protected PDF. Give it the password the file opens with and you get back a plain PDF — nothing to type to open it, and no restrictions on printing or copying — ready to share.</p>
+    <div class="dropzone" id="drop-unlock">
+      <span class="dz-mark" aria-hidden="true"><svg><use href="#i-unlock"/></svg></span>
+      <span class="dz-text">Drop a protected PDF here or <strong>click to browse</strong></span>
+      <input type="file" id="input-unlock" accept="application/pdf,.pdf" hidden>
+    </div>
+    <ul class="filelist" id="list-unlock"></ul>
+    <p class="hint hidden" id="hint-unlock"></p>
+    <div class="row">
+      <label for="pw-unlock">Password</label>
+      <input type="password" id="pw-unlock" placeholder="the password this PDF opens with"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="chip" type="button" id="pw-toggle" aria-pressed="false"
+              aria-controls="pw-unlock">Show</button>
+    </div>
+    <div class="row">
+      <label for="name-unlock">Output name</label>
+      <input type="text" id="name-unlock" placeholder="auto">
+    </div>
+    <button class="btn" id="btn-unlock" disabled><span class="btn-label">Remove password &amp; download</span><span class="btn-prog"></span></button>
+    <p class="msg" id="msg-unlock"></p>
+    <p class="hint">Leave the password blank for a PDF that opens freely but blocks printing or copying</p>
+  </section>
+
   <!-- ======== ACTIVITY ======== -->
   <section class="panel hidden" id="panel-logs">
     <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
@@ -779,17 +822,13 @@
     <p class="hint">Also appended to server.log &middot; clearing empties this view only</p>
   </section>
 
-  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress &middot; Activity</footer>
+  <footer>Merge &middot; Split &middot; Organize &middot; Images &middot; Compress &middot; Unlock &middot; Activity</footer>
 </div>
 
 <script>
 // Keep the server alive while a tab is open; it shuts itself down
 // ~10 minutes after the last tab closes.
 setInterval(() => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {}), 30000);
-
-if (window.pdfjsLib) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdf.worker.min.js';
-}
 
 /* ============================================================
    Motion layer — anime.js v4 (vendored UMD build, global `anime`)
@@ -911,7 +950,7 @@ function animateTitle() {
 }
 
 /* ---------- which tab starts open (resolved before the intro animates) ---------- */
-const TABS = ['merge', 'split', 'organize', 'jpg', 'compress', 'logs'];
+const TABS = ['merge', 'split', 'organize', 'jpg', 'compress', 'unlock', 'logs'];
 let activeTab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'merge';
 document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
 TABS.forEach(n => document.getElementById('panel-' + n).classList.toggle('hidden', n !== activeTab));
@@ -1170,11 +1209,17 @@ function pressFx(btn) {
   });
 }
 
+// The server mints a new key each launch, so a tab left open across a
+// restart still looks fine but can no longer talk to it. Say so plainly.
+const SESSION_LOST = 'This tab lost its key — the tool was restarted. ' +
+  'Reopen it with: pdftool stop && pdftool';
+
 async function postAndDownload(endpoint, fd, msgEl, verb, btn) {
   setMsgEl(msgEl, verb + '…');
   const prog = btn ? startProgress(btn) : { done() {} };
   try {
     const res = await fetch(endpoint, { method: 'POST', body: fd });
+    if (res.status === 403) throw new Error(SESSION_LOST);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Server error (' + res.status + ')');
@@ -1413,6 +1458,52 @@ makeUploader('compress', {
 });
 
 /* ============================================================
+   UNLOCK — hand back a PDF with its protection gone
+   ============================================================ */
+const unlockCtl = (function () {
+  const pw = document.getElementById('pw-unlock');
+  const eye = document.getElementById('pw-toggle');
+  const btn = document.getElementById('btn-unlock');
+
+  eye.addEventListener('click', () => {
+    const shown = pw.type === 'text';
+    pw.type = shown ? 'password' : 'text';
+    eye.textContent = shown ? 'Show' : 'Hide';
+    eye.classList.toggle('active', !shown);
+    eye.setAttribute('aria-pressed', String(!shown));
+    pw.focus();
+  });
+
+  // Typing a password and pressing Enter is the obvious way to run this one.
+  pw.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !btn.disabled) btn.click();
+  });
+
+  function hide() {
+    pw.type = 'password';
+    eye.textContent = 'Show';
+    eye.classList.remove('active');
+    eye.setAttribute('aria-pressed', 'false');
+  }
+
+  return {
+    fields(fd) { fd.append('password', pw.value); },
+    /** A password belongs to the file that just left — never leave it on screen. */
+    clear() { pw.value = ''; hide(); },
+  };
+})();
+
+makeUploader('unlock', {
+  accept: /\.pdf$/i, minFiles: 1, single: true,
+  endpoint: '/api/unlock', verb: 'Unlocking',
+  extraFields: unlockCtl.fields,
+  onDone: (blob, files, fname, msgEl) => {
+    unlockCtl.clear();
+    setMsgEl(msgEl, `Done — ${fname} downloaded, with no password on it.`, 'ok');
+  },
+});
+
+/* ============================================================
    ACTIVITY — a live view of what the server has actually done
    ============================================================ */
 logsView = (function () {
@@ -1478,6 +1569,15 @@ logsView = (function () {
     stream.appendChild(p);
   }
 
+  /** Polling stopped because the key died; leave the reason on screen. */
+  function showLost() {
+    stream.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'logempty';
+    p.textContent = SESSION_LOST;
+    stream.appendChild(p);
+  }
+
   function updateCount() {
     const shown = entries.filter(passes).length;
     countEl.textContent = shown === entries.length
@@ -1514,6 +1614,7 @@ logsView = (function () {
     inFlight = true;
     try {
       const res = await fetch('/api/logs?since=' + cursor);
+      if (res.status === 403) { setActive(false); showLost(); return; }
       if (!res.ok) return;
       const data = await res.json();
       cursor = data.cursor;
@@ -1566,10 +1667,16 @@ logsView = (function () {
 // The Activity tab can be the one open on load (#logs deep link).
 if (activeTab === 'logs') logsView.setActive(true);
 
+/** The pdf.js namespace once its module has landed, or null if it never did. */
+function pdfjs() {
+  return window.pdfjsReady || Promise.resolve(window.pdfjsLib || null);
+}
+
 async function loadPdfDoc(file) {
-  if (!window.pdfjsLib) return null;
+  const lib = await pdfjs();
+  if (!lib) return null;
   const data = await file.arrayBuffer();
-  return pdfjsLib.getDocument({ data }).promise;
+  return lib.getDocument({ data }).promise;
 }
 
 /* ============================================================
@@ -1681,7 +1788,7 @@ async function loadPdfDoc(file) {
   wireDropzone(drop, document.getElementById('input-organize'), async fs => {
     const pdf = fs.find(f => /\.pdf$/i.test(f.name));
     if (!pdf) { setMsgEl(msg, 'Please choose a PDF file.', 'err'); return; }
-    if (!window.pdfjsLib) {
+    if (!await pdfjs()) {
       setMsgEl(msg, 'Page previews unavailable (pdf.js failed to load).', 'err');
       return;
     }

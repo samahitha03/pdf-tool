@@ -1,126 +1,196 @@
-# PDF Tool (local)
+# PDF Tool
 
-A small local web app to merge, split, organize and compress PDFs,
-convert JPG/PNG images to PDF, and compress images. Everything runs on
-your machine — files are processed in memory and never leave your computer.
+A small, private PDF toolkit that runs entirely on your own computer. Merge,
+split, reorder, compress and unlock PDFs, and turn images into PDFs, all from a
+browser tab. Nothing is uploaded anywhere. Files are processed in memory by a
+local server and go straight back to your Downloads folder.
 
-## Start
-
-```bash
-~/Documents/pdf-tool/run.sh
-```
-
-The first run sets up a Python virtual environment (one time, ~30s).
-Your browser opens automatically at http://127.0.0.1:5177.
-Press `Ctrl+C` in the terminal to stop.
+![PDF Tool: merging three PDFs](docs/screenshots/merge.png)
 
 ## Features
 
-- **Merge** — drop two or more PDFs, drag them into the order you want,
-  name the output, click Merge. The result downloads via your browser.
-- **Split** — drop one PDF, then either extract pages (`1-3, 5, 8-`) into
-  a single new PDF, split by ranges into separate PDFs (ZIP), or save
-  every page as its own PDF (ZIP).
-- **Organize** — drop one PDF and work with live page thumbnails:
-  drag to reorder, rotate pages in 90° steps, remove pages, then
-  download the rebuilt PDF.
-- **Images to PDF** — drop one or more JPG/PNG images (each becomes a
-  page), reorder by dragging, pick a page size (fit-to-image, A4, or
-  Letter), click Convert.
-- **Compress** — drop one PDF or JPG/PNG image and shrink it.
-  Presets: *Less Compression* (high quality), *Recommended* (good
-  quality and compression, default), *Extreme* (smallest files). Or
-  pick a *Custom target*: reduce by 25%, 50%, 75%, or any ratio via
-  the slider — a bounded quality search hits the target with
-  consistent speed. Images come back as JPG. If a file can't be made
-  smaller, the original is returned unchanged.
+| | |
+|---|---|
+| **Merge** | Combine two or more PDFs. Drag the files into the order you want. |
+| **Split** | Extract pages (`1-3, 5, 8-`) into a new PDF, split by ranges into several PDFs, or save every page separately (as a ZIP). |
+| **Organize** | Reorder, rotate and delete pages using live page thumbnails. |
+| **Images** | Turn JPG/PNG images into a PDF, one page per image, at image size, A4 or Letter. |
+| **Compress** | Shrink a PDF or image with a preset (*Less*, *Recommended*, *Extreme*) or a custom target such as "50% smaller". |
+| **Unlock** | Remove the password and the print/copy/edit restrictions from a PDF *you already know the password to*. |
+| **Activity** | A live log of every operation: files in, file out, sizes, timing, and the reason for anything rejected. |
 
-- **Activity** — a live view of everything the server has done: one line per
-  operation with what went in, what came out, how long it took, and the reason
-  for anything rejected. Filter by level, or clear the view. It polls only
-  while the tab is open.
+It works offline. pdf.js, anime.js and the fonts are bundled in the repo, so
+nothing is loaded from a CDN.
 
-After every successful operation the upload area clears automatically,
-ready for the next job.
+## Screenshots
 
-## Files
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/organize.png" alt="Organize: page thumbnails you can reorder, rotate and remove"><br><sub><b>Organize</b>: drag thumbnails to reorder, rotate or remove pages</sub></td>
+    <td width="50%"><img src="docs/screenshots/split.png" alt="Split: extract pages, split by ranges, or every page"><br><sub><b>Split</b>: extract pages or split into several files</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/compress.png" alt="Compress: a 6.8 MB scan reduced to 1.4 MB"><br><sub><b>Compress</b>: a 6.8 MB scan down to 1.4 MB with the Recommended preset</sub></td>
+    <td><img src="docs/screenshots/images.png" alt="Images to PDF: three images queued for conversion"><br><sub><b>Images</b>: JPG/PNG to PDF, one page per image</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/unlock.png" alt="Unlock: removing the password from a protected PDF"><br><sub><b>Unlock</b>: remove a known password and restrictions</sub></td>
+    <td><img src="docs/screenshots/activity.png" alt="Activity: a log of merge, images, compress and unlock operations"><br><sub><b>Activity</b>: what ran, what came out, how long it took</sub></td>
+  </tr>
+</table>
 
-- `app.py` — Flask server (`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`, `/api/compress`)
-- `static/index.html` — the UI (single file, no build step)
-- `static/icon.svg` — the app mark; `static/favicon.svg` — a simplified cut of
-  the same artwork for the browser tab
-- `server.log` — the activity log (gitignored, rotates to `server.log.1` at 1 MB)
-- `static/vendor/` — pdf.js, anime.js and three webfonts, vendored locally so
-  previews, animation and typography all work offline
-- `run.sh` — launcher; creates `.venv` and installs deps on first run
+## Requirements
 
-## UI
+- **Python 3.9 or newer** (`python3 --version` to check)
+- A modern browser (Chrome, Edge, Firefox or Safari)
+- macOS or Linux. On Windows, see [Running manually](#running-manually).
 
-The Bitcoin DeFi aesthetic: a true-void ground with Bitcoin-fire energy. All
-tokens are custom properties at the top of `static/index.html`; there is no
-build step and no utility-class framework.
+## Getting started
 
-**Dark only, by design.** The glow, the glass and the fading grid all depend on
-darkness to read at all, so there is no light register and `prefers-color-scheme`
-is deliberately ignored. `<meta name="color-scheme" content="dark">` tells the
-browser to match.
+```bash
+git clone https://github.com/samahitha03/pdf-tool.git
+cd pdf-tool
+./run.sh
+```
 
-**Tokens.** `--void` `#030304` is the ground and `--surface` `#0F1115` the
-elevated panels. `--orange` `#F7931A` is the primary accent, `--burnt` `#EA580C`
-its gradient partner, and `--gold` `#FFD600` marks value — used on the
-compression-savings readout and the progress bar. `--fire` and `--value` are the
-two signature gradients. Every shadow in the file is a coloured glow; there are
-no black shadows.
+On the first run, `run.sh` creates a Python virtual environment in `.venv/` and
+installs the dependencies (Flask, pypdf, Pillow, cryptography). This takes
+about 30 seconds and only happens once. Then the server starts and your browser
+opens the tool at `http://127.0.0.1:5177`.
 
-**Type carries meaning.** Space Grotesk sets headings, Inter sets body copy, and
-JetBrains Mono is reserved for *data* — file sizes, page counts, percentages,
-the tab register and every uppercase label. That split is functional, not
-decorative: anything the user reads as a measurement is monospaced. All three
-are OFL, vendored as variable woff2, 102KB total, no CDN request.
+Press `Ctrl+C` in the terminal to stop it. The server also shuts itself down
+after 10 minutes with no open tab.
 
-**Vocabulary.** Pill-shaped buttons and tab indicator; glass-morphic tab bar
-over the void; 1px `white/10` borders that shift to orange on hover; rounded-2xl
-panels with orange corner accents; "holographic node" badges for row numbers;
-bottom-border-only inputs over `black/50`; a 50px grid masked to a radial
-vignette; drifting radial energy fields; counter-rotating orbital rings around
-the mark; and a live-network ping on the trust badge.
+### The `pdftool` command (optional)
 
-**One deliberate departure.** The system specifies white text on the
-`#EA580C → #F7931A` button gradient. Measured, that is 3.56:1 and 2.30:1 — both
-under the 4.5:1 AA floor at this text size. Near-void ink (`--on-fire`) gets
-5.67:1 and 8.79:1 on the same two stops, so every surface filled with the fire
-gradient uses dark ink instead. The look is unchanged; only the label flips.
+`pdftool` runs the tool in the background so it doesn't hold a terminal open:
 
-**The app mark** is vector, not raster. `icon.svg` carries the full artwork —
-violet folder, document sheet, ember card and a pixel-dissolve trail — and
-`favicon.svg` is a simplified cut of it: bolder shapes, no ruled lines, three
-embers instead of eighteen. Detail that reads at 512px turns to mush at 16px,
-so the tab icon deliberately carries less. Being SVG, both stay sharp at any
-size and add no binary asset or extra request. The mark keeps its own violet
-identity rather than being retuned to the Bitcoin-fire palette.
+```bash
+./pdftool          # start (if needed) and open it in the browser
+./pdftool status   # is it running?
+./pdftool stop     # stop it
+```
 
-**Logging.** Werkzeug's access log is one line per asset fetch and per
-heartbeat, which buries anything worth reading, so it is turned down to
-warnings and the app logs its own operations instead. A `@logged` decorator
-wraps each API endpoint and derives everything from the request and response —
-files in, filename and size out, duration, options, and the rejection reason on
-a 4xx — so the handler bodies are untouched by it. Entries go to an in-memory
-ring buffer (500) that the Activity view reads via `/api/logs?since=<cursor>`,
-and are appended to `server.log` in a plain, ANSI-free format that survives a
-restart. A log that cannot be written is swallowed: logging must never break the
-tool.
+To run it from anywhere, link it onto your `PATH`:
 
-The interface is animated with [anime.js](https://animejs.com/documentation/)
-v4 (MIT, vendored as `static/vendor/anime.umd.min.js`, exposing the global
-`anime`). It drives the intro timeline and mark line-drawing, the tab indicator
-and panel cross-fades, staggered file-list and thumbnail entrances, FLIP
-transitions when a page is deleted, the count-up on compression savings, the
-ambient orbitals and energy fields, and the confetti. DeFi motion is snappy —
-fast interaction easing over slow ambient loops.
+```bash
+ln -s "$PWD/pdftool" ~/.local/bin/pdftool   # or /usr/local/bin
+```
 
-Every animation goes through one `fx()` wrapper, so if anime.js fails to load
-or the reader has `prefers-reduced-motion: reduce` set, each animation's end
-state is applied immediately and the app stays fully usable. This means **CSS
-must always hold an animation's end state** — `clean()` reverts inline styles
-back to the stylesheet, so any resting value that only an animation sets will
-silently collapse when that animation finishes.
+It finds the project folder through the link, so the clone can live anywhere.
+
+### Running manually
+
+If `run.sh` doesn't suit your system (for example, on Windows):
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # Windows; use `source .venv/bin/activate` elsewhere
+pip install -r requirements.txt
+python app.py
+```
+
+## Using it
+
+1. Pick a tool from the tab bar.
+2. Drop files onto the drop zone, or click it to browse.
+3. Adjust the options (page ranges, order, preset, password…) and optionally
+   set an output file name.
+4. Click the action button. The result downloads through your browser, and the
+   drop zone clears for the next job.
+
+**Tips**
+
+- **Page ranges** in Split accept `1-3, 5, 8-`. An open range like `8-` runs
+  to the last page.
+- **Compress** returns the original file unchanged if it can't be made
+  smaller. Compressed images are saved as JPG, so PNG transparency becomes
+  white.
+- **Unlock**: for a PDF that opens without a password but blocks printing or
+  copying, leave the password blank. Unlock does not guess or crack unknown
+  passwords. Passwords are used for that one request and are never logged.
+- Other tools reject password-protected PDFs. Unlock them first.
+
+## Privacy and security
+
+- The server listens on `127.0.0.1` only, so other machines on your network
+  can't reach it.
+- Uploaded files are processed in memory and are never written to disk by the
+  server.
+- Each launch creates a random session key, kept in memory. The browser tab
+  the launcher opens gets the key and swaps it for a cookie. The server
+  rejects requests without the key, from other websites (`Origin` check), or
+  addressed to another host name (DNS-rebinding check). Other web pages and
+  local programs therefore can't drive the tool or read its activity log.
+
+Because the key changes each launch, a tab left open across a restart (or a
+bookmark) shows a "this tab isn't signed in" page. Relaunch to fix it:
+
+```bash
+./pdftool stop && ./pdftool
+```
+
+If the browser doesn't open on its own, `run.sh` prints a link containing the
+key to the terminal.
+
+## Configuration
+
+Two optional environment variables:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PDF_TOOL_IDLE_TIMEOUT` | `600` | Seconds with no open tab before the server exits |
+| `PDF_TOOL_MAX_CONTENT_LENGTH` | `52428800` (50 MB) | Largest upload accepted per request, in bytes |
+
+```bash
+PDF_TOOL_MAX_CONTENT_LENGTH=209715200 ./run.sh   # allow 200 MB uploads
+```
+
+The port is fixed at `5177` (`PORT` in `app.py`).
+
+## Project layout
+
+```
+app.py               Flask server and all PDF/image processing
+run.sh               Launcher: sets up .venv on first run, starts the server
+pdftool              Background start / stop / status helper
+requirements.txt     Python dependencies
+static/index.html    The whole UI (one file, no build step)
+static/icon.svg      App mark; favicon.svg is a simplified cut for the tab
+static/vendor/       pdf.js, anime.js and webfonts, bundled for offline use
+docs/DESIGN.md       Notes on the UI, motion, sessions and logging
+docs/screenshots/    Images used in this README
+```
+
+`server.log` (the activity log) is created at runtime. It is gitignored and
+rotates at 1 MB.
+
+### API
+
+The UI talks to these endpoints, which all take `multipart/form-data`:
+`/api/merge`, `/api/split`, `/api/organize`, `/api/jpg-to-pdf`,
+`/api/compress` and `/api/unlock`. `/api/logs` serves the activity feed.
+Every request must carry the session key described above.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| "This tab isn't signed in to PDF Tool" | The server restarted. Run `./pdftool stop && ./pdftool`. |
+| Port 5177 already in use | Run `./pdftool stop`, or find the process with `lsof -i :5177`. |
+| "Page previews unavailable" in Organize | pdf.js didn't load. Do a hard refresh, and check that `static/vendor/pdf.min.mjs` exists. |
+| File too large | Raise `PDF_TOOL_MAX_CONTENT_LENGTH` (see [Configuration](#configuration)). |
+| Something failed | Open the **Activity** tab, or read `server.log`, for the reason. |
+
+## Third-party code
+
+Bundled in `static/vendor/`, each with its license file alongside:
+
+- [pdf.js](https://github.com/mozilla/pdf.js) by Mozilla, Apache-2.0
+- [anime.js](https://github.com/juliangarnier/anime) by Julian Garnier, MIT
+- [Inter](https://rsms.me/inter/), [Space Grotesk](https://github.com/floriankarsten/space-grotesk)
+  and [JetBrains Mono](https://www.jetbrains.com/lp/mono/), SIL Open Font License
+
+Python dependencies: [Flask](https://flask.palletsprojects.com/),
+[pypdf](https://github.com/py-pdf/pypdf), [Pillow](https://python-pillow.org/)
+and [cryptography](https://cryptography.io/).

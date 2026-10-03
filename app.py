@@ -1,4 +1,4 @@
-"""Local PDF Tool — merge, split, organize, compress PDFs and convert images to PDF.
+"""Local PDF Tool — merge, split, organize, unlock, compress PDFs and convert images to PDF.
 
 Runs entirely on your machine. Start with ./run.sh and the UI opens
 in your browser at http://127.0.0.1:5177
@@ -8,6 +8,8 @@ import io
 import json
 import logging
 import os
+import secrets
+import sys
 import time
 import threading
 import webbrowser
@@ -16,8 +18,10 @@ from collections import deque
 from functools import wraps
 from threading import Timer
 
-from flask import Flask, request, send_file, send_from_directory, jsonify
-from pypdf import PdfWriter, PdfReader
+from flask import (Flask, jsonify, make_response, redirect, request, send_file,
+                   send_from_directory)
+from pypdf import PdfWriter, PdfReader, PasswordType
+from pypdf.errors import DependencyError, FileNotDecryptedError
 from PIL import Image
 
 HOST = "127.0.0.1"
@@ -25,6 +29,19 @@ PORT = 5177
 # Shut down after this many seconds with no open tabs (heartbeats)
 IDLE_TIMEOUT = int(os.environ.get("PDF_TOOL_IDLE_TIMEOUT", "600"))
 MAX_CONTENT_LENGTH = int(os.environ.get("PDF_TOOL_MAX_CONTENT_LENGTH", str(50 * 1024 * 1024)))
+
+# Everything below exists because this server, though bound to the loopback
+# address, is still reachable by every page in the browser and every process on
+# the machine. A page on any site can post to it, a rebound DNS name can read
+# from it, and any local process can drive it — unless the requests are checked.
+ALLOWED_HOSTS = {f"{HOST}:{PORT}", f"localhost:{PORT}"}
+ALLOWED_ORIGINS = {f"http://{HOST}:{PORT}", f"http://localhost:{PORT}"}
+# One secret per launch, held in memory and never written anywhere: server.log
+# is world-readable, so a token on disk would be worse than none at all.
+SESSION_TOKEN = secrets.token_urlsafe(32)
+COOKIE_NAME = "pdftool_session"
+TOKEN_PARAM = "t"
+TOKEN_HEADER = "X-PDF-Tool-Token"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_FILE = os.path.join(HERE, "server.log")
@@ -49,7 +66,8 @@ _log_seq = 0
 
 TOOL_LABELS = {
     "merge": "Merge", "split": "Split", "organize": "Organize",
-    "jpg": "Images", "compress": "Compress", "server": "Server",
+    "jpg": "Images", "compress": "Compress", "unlock": "Unlock",
+    "server": "Server",
 }
 
 
@@ -158,6 +176,88 @@ def logged(event):
     return decorate
 
 
+# ---------- access control ----------
+
+DENIED_PAGE = """<!doctype html>
+<meta charset="utf-8"><title>PDF Tool — session needed</title>
+<style>
+  body {{ background:#030304; color:#e9edf2; font:16px/1.7 -apple-system,system-ui,sans-serif;
+         display:grid; place-items:center; min-height:100vh; margin:0; text-align:center }}
+  div {{ max-width:34rem; padding:2rem }}
+  h1 {{ font-size:1.3rem; margin:0 0 .8rem }}
+  code {{ background:#14161c; padding:.2em .5em; border-radius:6px; color:#f7931a }}
+  p {{ color:#98a2b3 }}
+</style>
+<div>
+  <h1>This tab isn't signed in to PDF Tool</h1>
+  <p>{reason}</p>
+  <p>The tool hands its browser tab a key when it starts, and that key lasts
+     only as long as this run. Open it again from the launcher:</p>
+  <p><code>pdftool stop &amp;&amp; pdftool</code></p>
+</div>
+"""
+
+_denial_log = {}          # reason → when it was last written, to cap log noise
+
+
+def _deny(reason, status=403):
+    """Refuse a request, logging each distinct reason at most once per 10s.
+
+    Without the throttle a hostile page could fill server.log by looping.
+    """
+    now = time.time()
+    if now - _denial_log.get(reason, 0) > 10:
+        _denial_log[reason] = now
+        log_event("warn", "server", f"Blocked a request: {reason}", path=request.path)
+    if request.path.startswith("/api/"):
+        return jsonify(error=f"{reason}. Restart the tool with: pdftool stop && pdftool"), status
+    return DENIED_PAGE.format(reason=reason), status, {"Content-Type": "text/html; charset=utf-8"}
+
+
+def _token_ok(supplied):
+    return supplied is not None and secrets.compare_digest(supplied, SESSION_TOKEN)
+
+
+@app.before_request
+def guard_request():
+    """Answer only this machine's browser, running this launch of the tool.
+
+    Three separate doors, because they stop three different things: the Host
+    check defeats DNS rebinding, the Origin check defeats cross-site posts, and
+    the token keeps other local processes — which share the loopback address —
+    out of the API and the activity log.
+    """
+    if request.host not in ALLOWED_HOSTS:
+        return _deny("that host name is not this tool's own")
+
+    origin = request.headers.get("Origin")
+    if origin and origin not in ALLOWED_ORIGINS:
+        return _deny("that request came from another site")
+
+    if request.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site"):
+        return _deny("that request came from another site")
+
+    # Vendored scripts, fonts and the app mark: public files, no user data.
+    # /favicon.ico is here because browsers probe it on their own, outside the
+    # page's cookie context — refusing it would log a scare on every load.
+    if request.path.startswith("/static/") or request.path == "/favicon.ico":
+        return None
+
+    if _token_ok(request.cookies.get(COOKIE_NAME)) or \
+            _token_ok(request.headers.get(TOKEN_HEADER)):
+        return None
+
+    # The launcher opens /?t=<token>. Trade it for a cookie and redirect to a
+    # clean URL, so the key never lingers in the address bar or in history.
+    if request.path == "/" and _token_ok(request.args.get(TOKEN_PARAM)):
+        response = make_response(redirect("/", code=302))
+        response.set_cookie(COOKIE_NAME, SESSION_TOKEN, httponly=True,
+                            samesite="Strict", path="/")
+        return response
+
+    return _deny("this tab has no key for the running tool")
+
+
 @app.before_request
 def touch_activity():
     global last_activity
@@ -205,6 +305,12 @@ PAGE_SIZES = {
 }
 
 
+@app.get("/favicon.ico")
+def favicon():
+    """Browsers ask for this by convention even though the page names the SVG."""
+    return send_from_directory("static", "favicon.svg")
+
+
 @app.get("/")
 def index():
     return send_from_directory("static", "index.html")
@@ -217,10 +323,16 @@ class PdfToolError(ValueError):
 def read_pdf(f):
     reader = PdfReader(io.BytesIO(f.read()))
     if reader.is_encrypted:
+        # An empty password opens files that carry only restrictions; anything
+        # else belongs in the Unlock tab, where a password can be given.
         try:
-            reader.decrypt("")
+            opened = reader.decrypt("")
         except Exception:
-            raise PdfToolError(f"'{f.filename}' is password-protected.")
+            opened = PasswordType.NOT_DECRYPTED
+        if opened == PasswordType.NOT_DECRYPTED:
+            raise PdfToolError(
+                f"'{f.filename}' is password-protected — remove its password "
+                "in the Unlock tab first.")
     return reader
 
 
@@ -485,9 +597,12 @@ def rebuild_pdf(data, quality, max_dim):
     reader = PdfReader(io.BytesIO(data))
     if reader.is_encrypted:
         try:
-            reader.decrypt("")
+            opened = reader.decrypt("")
         except Exception:
-            raise PdfToolError("This PDF is password-protected.")
+            opened = PasswordType.NOT_DECRYPTED
+        if opened == PasswordType.NOT_DECRYPTED:
+            raise PdfToolError("This PDF is password-protected — remove its "
+                               "password in the Unlock tab first.")
     writer = PdfWriter(clone_from=reader)
     for page in writer.pages:
         for img in page.images:
@@ -589,15 +704,97 @@ def compress_file():
                                                out_ext))
 
 
+# ---------- unlock ----------
+
+def unlock_pdf_bytes(data, password):
+    """A copy of a PDF with its protection gone, and how it was opened.
+
+    "Unlocked" here means the file is free of PDF security altogether: no
+    password is needed to open it, and the permission flags that block
+    printing, copying or editing are gone with the encryption that carried
+    them — so the result can be shared and used like any ordinary PDF.
+    """
+    reader = PdfReader(io.BytesIO(data))
+    if not reader.is_encrypted:
+        raise PdfToolError("This PDF is not protected — there is nothing to unlock.")
+
+    try:
+        opened = reader.decrypt(password)
+    except DependencyError:
+        raise PdfToolError(
+            "This PDF uses AES encryption, which needs the 'cryptography' "
+            "package. Install it with: .venv/bin/pip install -r requirements.txt")
+    except NotImplementedError as e:
+        raise PdfToolError(f"This PDF uses an encryption this tool cannot open: {e}")
+    except Exception as e:
+        raise PdfToolError(f"Could not decrypt this PDF: {e}")
+
+    if opened == PasswordType.NOT_DECRYPTED:
+        raise PdfToolError(
+            "That password did not open this PDF — check it and try again."
+            if password else
+            "This PDF needs a password to open — enter it above.")
+
+    # Cloning pulls every object through the decryption filter, and the writer
+    # emits them plain: no /Encrypt dictionary and no permission flags survive.
+    try:
+        writer = PdfWriter(clone_from=reader)
+        out = io.BytesIO()
+        writer.write(out)
+    except FileNotDecryptedError:
+        raise PdfToolError("That password opens the file but cannot decrypt its contents.")
+
+    how = ("owner password (restrictions removed)"
+           if opened == PasswordType.OWNER_PASSWORD else "user password")
+    return out.getvalue(), how
+
+
+@app.post("/api/unlock")
+@logged("unlock")
+def unlock_file():
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify(error="Upload a protected PDF to unlock."), 400
+    if len(files) > 1:
+        return jsonify(error="Unlock one file at a time."), 400
+
+    f = files[0]
+    name = os.path.basename(f.filename or "document.pdf")
+    if not name.lower().endswith(".pdf"):
+        return jsonify(error=f"'{name}' is not a PDF."), 400
+
+    # The password is read straight into a local and never logged: the @logged
+    # decorator only records the form fields it names, and this is not one.
+    password = request.form.get("password", "")
+    try:
+        out, how = unlock_pdf_bytes(f.read(), password)
+    except PdfToolError as e:
+        return jsonify(error=str(e)), 400
+    except Exception as e:
+        return jsonify(error=f"Could not unlock '{name}': {e}"), 400
+
+    log_event("info", "unlock", f"Opened '{name}' with its {how}")
+    stem = os.path.splitext(name)[0]
+    return send_file(io.BytesIO(out), mimetype="application/pdf", as_attachment=True,
+                     download_name=output_name(f"{stem}_unlocked"))
+
+
 def open_browser():
-    webbrowser.open(f"http://{HOST}:{PORT}")
+    """Hand the tab its key directly; it is swapped for a cookie on arrival."""
+    webbrowser.open(f"http://{HOST}:{PORT}/?{TOKEN_PARAM}={SESSION_TOKEN}")
 
 
 def main():
     threading.Thread(target=idle_watchdog, daemon=True).start()
     Timer(1.0, open_browser).start()
     log_event("info", "server", f"PDF Tool started on http://{HOST}:{PORT}")
-    print(f"\n  PDF Tool running at http://{HOST}:{PORT}  (Ctrl+C to stop)\n")
+    print(f"\n  PDF Tool running at http://{HOST}:{PORT}  (Ctrl+C to stop)")
+    if sys.stdout.isatty():
+        # Only ever to a terminal: the launcher redirects stdout into
+        # server.log, which is world-readable.
+        print(f"  If the browser did not open, use this link — it carries this\n"
+              f"  run's key:  http://{HOST}:{PORT}/?{TOKEN_PARAM}={SESSION_TOKEN}")
+    print()
     app.run(host=HOST, port=PORT, debug=False)
 
 

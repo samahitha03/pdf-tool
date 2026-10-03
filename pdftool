@@ -4,8 +4,26 @@
 #   pdftool stop    stop the server
 #   pdftool status  check whether the server is running
 
-DIR="$HOME/Documents/pdf-tool"
+# The project folder is wherever this script lives, following symlinks so it
+# can be linked onto the PATH (e.g. ~/.local/bin/pdftool).
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  TARGET="$(readlink "$SOURCE")"
+  case "$TARGET" in
+    /*) SOURCE="$TARGET" ;;
+    *)  SOURCE="$(dirname "$SOURCE")/$TARGET" ;;
+  esac
+done
+DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 URL="http://127.0.0.1:5177"
+
+# macOS has `open`; most Linux desktops have `xdg-open`.
+open_url() {
+  if command -v open >/dev/null 2>&1; then open "$1"
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1
+  else echo "Open $1 in your browser."
+  fi
+}
 
 is_running() {
   curl -s -o /dev/null -m 1 "$URL/"
@@ -28,8 +46,11 @@ case "${1:-open}" in
     ;;
   open|*)
     if is_running; then
+      # The running server holds this launch's key; a tab that still has the
+      # session cookie is let in, and one that does not is told to restart.
       echo "Already running — opening $URL"
-      open "$URL"
+      echo "  (if the tab says it has no key: pdftool stop && pdftool)"
+      open_url "$URL"
     else
       echo "Starting PDF Tool..."
       nohup "$DIR/run.sh" > "$DIR/server.log" 2>&1 &
